@@ -321,6 +321,26 @@ body {
 .msg-text pre code { background: none; padding: 0; font-size: 13px; }
 .msg-text a { color: var(--accent); text-decoration: none; }
 .msg-text a:hover { text-decoration: underline; }
+.msg-text p { margin: 0 0 4px; }
+.msg-text p:last-child { margin-bottom: 0; }
+.msg-text h1, .msg-text h2, .msg-text h3, .msg-text h4, .msg-text h5, .msg-text h6 {
+  color: var(--text-primary); margin: 8px 0 4px; line-height: 1.3;
+}
+.msg-text h1 { font-size: 1.4em; }
+.msg-text h2 { font-size: 1.25em; }
+.msg-text h3 { font-size: 1.1em; }
+.msg-text h4, .msg-text h5, .msg-text h6 { font-size: 1em; }
+.msg-text blockquote {
+  border-left: 3px solid var(--accent); margin: 6px 0; padding: 4px 12px;
+  color: var(--text-muted); background: rgba(255,255,255,0.02); border-radius: 0 6px 6px 0;
+}
+.msg-text ul, .msg-text ol { margin: 4px 0; padding-left: 24px; }
+.msg-text li { margin: 2px 0; }
+.msg-text table { border-collapse: collapse; margin: 6px 0; font-size: 13px; }
+.msg-text th, .msg-text td { border: 1px solid var(--border); padding: 4px 10px; }
+.msg-text th { background: rgba(255,255,255,0.04); font-weight: 600; }
+.msg-text hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+.msg-text img { max-width: 100%; max-height: 300px; border-radius: 6px; }
 
 /* 附件 */
 .msg-attachment { margin-top: 6px; max-width: 400px; }
@@ -622,6 +642,8 @@ body {
   #main-area .header, #dm-view .header { padding-left: 8px; }
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
 </head>
 <body>
 
@@ -949,22 +971,19 @@ function colorFor(name) {
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML.replace(/'/g, '&#39;').replace(/"/g, '&quot;'); }
 
 function renderMd(text) {
-  // text is already HTML-escaped via esc()
-  // Code blocks first (```...```)
-  text = text.replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code}</code></pre>`);
-  // Inline code
-  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Bold
-  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // Italic
-  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // Strikethrough
-  text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
-  // Links (already escaped, so match &quot; or plain)
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  // Auto-link URLs
-  text = text.replace(/(^|[^"=])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
-  return text;
+  if (!text) return '';
+  marked.setOptions({
+    breaks: true,
+    gfm: true,
+    headerIds: false,
+    mangle: false,
+  });
+  return DOMPurify.sanitize(marked.parse(text), {
+    ALLOWED_TAGS: ['p','br','strong','em','del','code','pre','a','ul','ol','li',
+      'h1','h2','h3','h4','h5','h6','blockquote','table','thead','tbody','tr','th','td','hr','img'],
+    ALLOWED_ATTR: ['href','target','rel','src','alt'],
+    ADD_ATTR: ['target'],
+  }).replace(/<a /g, '<a target="_blank" rel="noopener" ');
 }
 
 function renderAttachment(m) {
@@ -1253,7 +1272,7 @@ function buildMessageEl(m) {
       <div class="msg-avatar">${avatarInner(m.author)}</div>
       <div class="msg-body">
         <div class="msg-name" style="color:${c}">${esc(m.author.username)}<span class="msg-time">${time}</span></div>
-        <div class="msg-text" id="msg-text-${m.id}">${m.content ? renderMd(esc(m.content)) : ''}${edited}</div>
+        <div class="msg-text" id="msg-text-${m.id}">${m.content ? renderMd(m.content) : ''}${edited}</div>
         ${renderAttachment(m)}
       </div>
       <div class="msg-actions">
@@ -1315,7 +1334,7 @@ function _doConnectWS() {
       showTyping(data.username);
     } else if (data.type === 'edit') {
       const el = document.getElementById('msg-text-' + data.id);
-      if (el) el.innerHTML = renderMd(esc(data.content)) + '<span class="msg-edited">(已编辑)</span>';
+      if (el) el.innerHTML = renderMd(data.content) + '<span class="msg-edited">(已编辑)</span>';
     } else if (data.type === 'delete') {
       const msg = document.querySelector(`.message[data-id="${data.message_id}"]`);
       if (msg) { msg.style.animation = 'none'; msg.style.opacity = '0'; setTimeout(() => msg.remove(), 200); }
@@ -1723,7 +1742,7 @@ async function loadDmMessages() {
           <div class="msg-avatar">${avatarInner(m.sender)}</div>
           <div class="msg-body">
             <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
-            <div class="msg-text">${m.content ? renderMd(esc(m.content)) : ''}</div>
+            <div class="msg-text">${m.content ? renderMd(m.content) : ''}</div>
             ${renderAttachment(m)}
           </div>
         </div>`;
@@ -1806,7 +1825,7 @@ function appendDmMessage(m) {
       <div class="msg-avatar">${avatarInner(m.sender)}</div>
       <div class="msg-body">
         <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
-        <div class="msg-text">${m.content ? renderMd(esc(m.content)) : ''}</div>
+        <div class="msg-text">${m.content ? renderMd(m.content) : ''}</div>
         ${renderAttachment(m)}
       </div>
     </div>`;

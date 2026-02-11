@@ -86,12 +86,32 @@ DirectMessage
 - 每个服务器对应一个 group：`server_{server_id}`（用于在线状态广播）
 - 连接时验证用户身份和服务器成员资格
 - 断开时更新内存在线列表并同步数据库 `User.online` 字段
+- 消息处理链：B站解析 → `/img` → `/myimg` → `/name` → DeepSeek AI（仅系统服务器）
 
 **私信（DmConsumer）**
 
 - 每个用户对应一个 group：`dm_{user_id}`
 - 用户登录后即建立连接，全局接收私信
 - 发送私信时同时推送到发送者和接收者的 group
+- 消息处理链：B站解析 → `/img` → `/myimg` → `/name` → DeepSeek AI
+
+---
+
+## Bot 架构
+
+Bot 使用数据库中的 `Bot` 用户（由 `setup_default` 管理命令创建）发送消息。
+
+**模块划分**
+
+- `bilibili.py` — B站视频解析、随机图片、头像下载
+- `deepseek.py` — DeepSeek API 调用、人设管理、对话历史
+
+**人设系统**
+
+- 人设定义存储在 `deepseek.py` 的 `PERSONAS` 字典中
+- 全局共享一个激活人设，通过 `/name` 命令切换
+- 每个用户独立维护对话历史（内存中，最多 20 轮）
+- 切换人设时清空所有用户的对话历史
 
 ---
 

@@ -39,6 +39,13 @@
 - 6 种主题色可选，设置持久化
 - 用户资料卡片（点击成员查看）
 
+**Bot 功能**
+- B站视频解析：发送 BV/AV号或 bilibili 链接，自动解析视频信息
+- 随机图片：发送 `/img` 获取随机图片
+- 快捷换头像：发送 `/myimg <图片URL>` 快速更换头像
+- AI 对话：在系统服务器或私信中与 Bot 聊天，基于 DeepSeek API
+- 人设切换：管理员使用 `/name <人设名>` 切换 Bot 人设（默认 Elysia）
+
 **在线状态**
 - 实时在线/离线状态追踪
 - 成员面板分组显示在线与离线用户
@@ -94,6 +101,8 @@ Golden-Courtyard/
 │   ├── models.py         # 数据模型（User, Server, Channel, Message, DM 等）
 │   ├── views.py          # REST API 视图 + 权限控制
 │   ├── consumers.py      # WebSocket 消费者（ChatConsumer + DmConsumer）
+│   ├── bilibili.py       # B站视频解析 + 随机图片 + 头像下载
+│   ├── deepseek.py       # DeepSeek AI 对话 + 人设管理
 │   ├── serializers.py    # DRF 序列化器
 │   ├── routing.py        # WebSocket 路由
 │   ├── urls.py           # API 路由

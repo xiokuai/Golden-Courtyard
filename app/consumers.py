@@ -2,6 +2,8 @@ import json
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Message, Channel, Membership, User, DirectMessage
+from .bilibili import extract_bilibili_id, fetch_video_info, format_response, fetch_random_image, download_avatar
+from .deepseek import chat as deepseek_chat, switch_persona, get_persona_names, active_persona
 
 # 在内存中追踪在线用户 {server_id: {user_id, ...}}
 online_users = {}
@@ -75,6 +77,68 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 'type': 'chat_message',
                 'message': message,
             })
+            # B站视频解析
+            bili_id = extract_bilibili_id(text)
+            if bili_id:
+                try:
+                    data = await fetch_video_info(bili_id)
+                    md = format_response(data)
+                except Exception:
+                    md = '解析失败：无法连接解析服务'
+                bot_msg = await self.save_bot_message(md, message['id'])
+                await self.channel_layer.group_send(self.room_group, {
+                    'type': 'chat_message',
+                    'message': bot_msg,
+                })
+            # 随机图片命令
+            elif text.strip() == '/img':
+                try:
+                    md = await fetch_random_image()
+                except Exception:
+                    md = '获取图片失败'
+                bot_msg = await self.save_bot_message(md, message['id'])
+                await self.channel_layer.group_send(self.room_group, {
+                    'type': 'chat_message',
+                    'message': bot_msg,
+                })
+            # 切换头像命令
+            elif text.strip().startswith('/myimg '):
+                img_url = text.strip()[7:].strip()
+                try:
+                    rel_path = await download_avatar(img_url)
+                    await self.update_avatar(rel_path)
+                    md = '头像已更新'
+                except Exception:
+                    md = '头像更新失败，请检查链接是否有效'
+                bot_msg = await self.save_bot_message(md, message['id'])
+                await self.channel_layer.group_send(self.room_group, {
+                    'type': 'chat_message',
+                    'message': bot_msg,
+                })
+            # 切换人设命令（仅wuli可用）
+            elif text.strip().startswith('/name ') and self.user.username == 'wuli':
+                name = text.strip()[6:].strip()
+                if switch_persona(name):
+                    md = f'人设已切换为：**{name}**'
+                else:
+                    names = '、'.join(get_persona_names())
+                    md = f'未找到人设「{name}」，可用人设：{names}'
+                bot_msg = await self.save_bot_message(md, message['id'])
+                await self.channel_layer.group_send(self.room_group, {
+                    'type': 'chat_message',
+                    'message': bot_msg,
+                })
+            # DeepSeek AI 对话（仅系统服务器）
+            elif await self.is_system_server():
+                try:
+                    reply = await deepseek_chat(self.user.id, self.user.username, text)
+                except Exception:
+                    reply = '对话服务暂时不可用，请稍后再试'
+                bot_msg = await self.save_bot_message(reply, message['id'])
+                await self.channel_layer.group_send(self.room_group, {
+                    'type': 'chat_message',
+                    'message': bot_msg,
+                })
 
         elif msg_type == 'typing':
             await self.channel_layer.group_send(self.room_group, {
@@ -148,6 +212,11 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         return None
 
     @database_sync_to_async
+    def is_system_server(self):
+        from .models import Server
+        return Server.objects.filter(pk=self.server_id, is_system=True).exists()
+
+    @database_sync_to_async
     def save_message(self, text, reply_to_id=None):
         kwargs = dict(content=text, author=self.user, channel_id=self.channel_id)
         if reply_to_id:
@@ -206,6 +275,48 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         except Message.DoesNotExist:
             return False
 
+    @database_sync_to_async
+    def update_avatar(self, rel_path):
+        user = User.objects.get(pk=self.user.id)
+        if user.avatar:
+            user.avatar.delete(save=False)
+        user.avatar = rel_path
+        user.save(update_fields=['avatar'])
+
+    @database_sync_to_async
+    def save_bot_message(self, text, reply_to_id=None):
+        bot = User.objects.get(username='Bot')
+        kwargs = dict(content=text, author=bot, channel_id=self.channel_id)
+        if reply_to_id:
+            kwargs['reply_to_id'] = reply_to_id
+        msg = Message.objects.create(**kwargs)
+        result = {
+            'id': msg.id,
+            'content': msg.content,
+            'author': {
+                'id': bot.id,
+                'username': bot.username,
+                'avatar': bot.avatar.url if bot.avatar else '',
+            },
+            'channel': msg.channel_id,
+            'attachment': '',
+            'attachment_type': '',
+            'attachment_name': '',
+            'created_at': msg.created_at.isoformat(),
+            'reply_to': None,
+        }
+        if reply_to_id:
+            try:
+                rt = Message.objects.select_related('author').get(pk=reply_to_id)
+                result['reply_to'] = {
+                    'id': rt.id,
+                    'content': rt.content,
+                    'author': {'id': rt.author.id, 'username': rt.author.username},
+                }
+            except Message.DoesNotExist:
+                pass
+        return result
+
 
 class DmConsumer(AsyncJsonWebsocketConsumer):
     """私信 WebSocket，每个用户连接到自己的 dm_{user_id} 组"""
@@ -243,6 +354,73 @@ class DmConsumer(AsyncJsonWebsocketConsumer):
                 'type': 'dm_message',
                 'message': result,
             })
+            # B站视频解析
+            bili_id = extract_bilibili_id(text)
+            if bili_id:
+                try:
+                    data = await fetch_video_info(bili_id)
+                    md = format_response(data)
+                except Exception:
+                    md = '解析失败：无法连接解析服务'
+                bot_result = await self.save_bot_dm(self.user.id, md)
+                if bot_result:
+                    await self.channel_layer.group_send(self.group_name, {
+                        'type': 'dm_message',
+                        'message': bot_result,
+                    })
+            # 随机图片命令
+            elif text.strip() == '/img':
+                try:
+                    md = await fetch_random_image()
+                except Exception:
+                    md = '获取图片失败'
+                bot_result = await self.save_bot_dm(self.user.id, md)
+                if bot_result:
+                    await self.channel_layer.group_send(self.group_name, {
+                        'type': 'dm_message',
+                        'message': bot_result,
+                    })
+            # 切换头像命令
+            elif text.strip().startswith('/myimg '):
+                img_url = text.strip()[7:].strip()
+                try:
+                    rel_path = await download_avatar(img_url)
+                    await self.update_avatar(rel_path)
+                    md = '头像已更新'
+                except Exception:
+                    md = '头像更新失败，请检查链接是否有效'
+                bot_result = await self.save_bot_dm(self.user.id, md)
+                if bot_result:
+                    await self.channel_layer.group_send(self.group_name, {
+                        'type': 'dm_message',
+                        'message': bot_result,
+                    })
+            # 切换人设命令（仅wuli可用）
+            elif text.strip().startswith('/name ') and self.user.username == 'wuli':
+                name = text.strip()[6:].strip()
+                if switch_persona(name):
+                    md = f'人设已切换为：**{name}**'
+                else:
+                    names = '、'.join(get_persona_names())
+                    md = f'未找到人设「{name}」，可用人设：{names}'
+                bot_result = await self.save_bot_dm(self.user.id, md)
+                if bot_result:
+                    await self.channel_layer.group_send(self.group_name, {
+                        'type': 'dm_message',
+                        'message': bot_result,
+                    })
+            # DeepSeek AI 对话
+            else:
+                try:
+                    reply = await deepseek_chat(self.user.id, self.user.username, text)
+                except Exception:
+                    reply = '对话服务暂时不可用，请稍后再试'
+                bot_result = await self.save_bot_dm(self.user.id, reply)
+                if bot_result:
+                    await self.channel_layer.group_send(self.group_name, {
+                        'type': 'dm_message',
+                        'message': bot_result,
+                    })
 
     async def dm_message(self, event):
         await self.send_json({'type': 'dm', **event['message']})
@@ -264,3 +442,28 @@ class DmConsumer(AsyncJsonWebsocketConsumer):
             'attachment': '', 'attachment_type': '', 'attachment_name': '',
             'created_at': dm.created_at.isoformat(),
         }
+
+    @database_sync_to_async
+    def save_bot_dm(self, receiver_id, text):
+        bot = User.objects.get(username='Bot')
+        try:
+            receiver = User.objects.get(pk=receiver_id)
+        except User.DoesNotExist:
+            return None
+        dm = DirectMessage.objects.create(sender=bot, receiver=receiver, content=text)
+        return {
+            'id': dm.id,
+            'content': dm.content,
+            'sender': {'id': bot.id, 'username': bot.username},
+            'receiver': {'id': receiver.id, 'username': receiver.username},
+            'attachment': '', 'attachment_type': '', 'attachment_name': '',
+            'created_at': dm.created_at.isoformat(),
+        }
+
+    @database_sync_to_async
+    def update_avatar(self, rel_path):
+        user = User.objects.get(pk=self.user.id)
+        if user.avatar:
+            user.avatar.delete(save=False)
+        user.avatar = rel_path
+        user.save(update_fields=['avatar'])
