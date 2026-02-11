@@ -1,31 +1,60 @@
 # Golden Courtyard
 
-基于 Django + Channels 的实时聊天应用，类似 Discord 的服务器/频道/私信体验。
+基于 Django + Channels 的实时聊天应用，提供类似 Discord 的服务器、频道、私信体验。
 
-## 功能
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Django](https://img.shields.io/badge/Django-4.2-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
-- 用户注册/登录
-- 创建服务器，通过邀请码加入
-- 服务器内创建文字频道
-- WebSocket 实时消息收发、编辑、删除
-- 输入状态指示器
-- 成员在线状态追踪
-- 私信（WebSocket 实时推送）
-- 消息分页加载（滚动加载历史）
+## 功能特性
+
+**服务器与频道**
+- 创建/删除服务器，自动生成 8 位邀请码
+- 通过邀请码加入服务器
+- 服务器内创建多个文字频道
 - 基于角色的权限控制（owner / admin / member）
+
+**实时消息**
+- WebSocket 实时收发消息
+- 消息编辑与删除
+- 输入状态指示器（正在输入...）
+- 滚动加载历史消息（每次 50 条分页）
+- 断线自动重连（指数退避）
+
+**私信系统**
+- 用户搜索，发起私信对话
+- WebSocket 实时私信推送
+- 未读消息计数
+- 右键成员面板快速发起私信
+
+**在线状态**
+- 实时在线/离线状态追踪
+- 成员面板分组显示在线与离线用户
+- 状态同步写入数据库
 
 ## 技术栈
 
-- Python / Django 4.2
-- Django Channels（WebSocket）
-- Django REST Framework
-- Daphne（ASGI 服务器）
-- SQLite（开发环境）
-- 原生 HTML / CSS / JavaScript（单页前端）
+| 层级 | 技术 |
+|------|------|
+| 后端框架 | Django 4.2 |
+| WebSocket | Django Channels + Daphne |
+| REST API | Django REST Framework |
+| 数据库 | SQLite（开发）|
+| 前端 | 原生 HTML / CSS / JavaScript |
+| 认证 | Django Session Auth |
 
 ## 快速开始
 
 ```bash
+# 克隆项目
+git clone https://github.com/xiokuai/Golden-Courtyard.git
+cd Golden-Courtyard
+
+# 创建虚拟环境（推荐）
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
+
 # 安装依赖
 pip install -r requirements.txt
 
@@ -44,19 +73,39 @@ python manage.py runserver
 ## 项目结构
 
 ```
-├── app/                # 主应用
-│   ├── models.py       # 数据模型（User, Server, Channel, Message, DM）
-│   ├── views.py        # REST API 视图
-│   ├── consumers.py    # WebSocket 消费者（聊天 + 私信）
-│   ├── serializers.py  # DRF 序列化器
-│   ├── routing.py      # WebSocket 路由
-│   └── urls.py         # API 路由
-├── config/             # Django 项目配置
+Golden-Courtyard/
+├── app/                  # 主应用
+│   ├── models.py         # 数据模型（User, Server, Channel, Message, DM）
+│   ├── views.py          # REST API 视图 + 权限控制
+│   ├── consumers.py      # WebSocket 消费者（ChatConsumer + DmConsumer）
+│   ├── serializers.py    # DRF 序列化器
+│   ├── routing.py        # WebSocket 路由
+│   ├── urls.py           # API 路由
+│   ├── admin.py          # Django Admin 注册
+│   └── migrations/       # 数据库迁移文件
+├── config/               # Django 项目配置
+│   ├── settings.py
+│   ├── urls.py
+│   ├── asgi.py
+│   └── wsgi.py
 ├── templates/
-│   └── index.html      # 单页前端
+│   └── index.html        # 单页前端（HTML + CSS + JS）
+├── docs/                 # 开发者文档
+│   ├── api.md            # REST API 参考
+│   ├── websocket.md      # WebSocket 协议说明
+│   └── architecture.md   # 架构设计说明
 ├── manage.py
-└── requirements.txt
+├── requirements.txt
+└── README.md
 ```
+
+## 文档
+
+详细的开发者文档位于 [docs/](./docs/) 目录：
+
+- [API 参考](./docs/api.md) — REST API 端点说明
+- [WebSocket 协议](./docs/websocket.md) — WebSocket 消息格式与事件
+- [架构设计](./docs/architecture.md) — 项目架构与数据模型
 
 ## License
 
