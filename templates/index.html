@@ -367,6 +367,10 @@ body {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .modal h3 { margin-bottom: 6px; color: #fff; font-size: 18px; font-weight: 700; }
+.modal-tabs { display: flex; gap: 0; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+.modal-tab { flex: 1; padding: 8px 0; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-size: 13px; font-family: inherit; cursor: pointer; transition: color 0.2s, border-color 0.2s; }
+.modal-tab:hover { color: var(--text-secondary); }
+.modal-tab.active { color: var(--text-primary); border-bottom-color: var(--accent); }
 .modal .modal-desc { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
 .modal label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
 .modal input {
@@ -717,10 +721,19 @@ body {
 <!-- 创建/加入服务器弹窗 -->
 <div class="modal-overlay" id="server-modal">
   <div class="modal">
-    <h3 id="server-modal-title">创建或加入服务器</h3>
-    <p class="modal-desc">输入名称创建新服务器，或输入邀请码加入已有服务器</p>
-    <label>服务器名称 / 邀请码</label>
-    <input id="server-modal-input" placeholder="例如: 我的服务器 或 a1b2c3d4" />
+    <h3>创建或加入服务器</h3>
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchServerTab('create')">创建服务器</button>
+      <button class="modal-tab" onclick="switchServerTab('join')">加入服务器</button>
+    </div>
+    <div id="server-tab-create">
+      <label>服务器名称</label>
+      <input id="server-create-input" placeholder="输入服务器名称" />
+    </div>
+    <div id="server-tab-join" style="display:none">
+      <label>邀请码</label>
+      <input id="server-join-input" placeholder="输入邀请码，例如 a1b2c3d4" />
+    </div>
     <div class="actions">
       <button class="btn-cancel" onclick="closeModal('server-modal')">取消</button>
       <button class="btn-primary" onclick="submitServerModal()">确定</button>
@@ -750,6 +763,20 @@ body {
     <div class="actions">
       <button class="btn-cancel" onclick="closeModal('channel-modal')">取消</button>
       <button class="btn-primary" onclick="createChannel()">创建</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="status-modal">
+  <div class="modal">
+    <h3>设置状态</h3>
+    <p class="modal-desc">让其他人知道你在做什么</p>
+    <label>状态消息</label>
+    <input id="status-input" placeholder="正在摸鱼..." maxlength="100" />
+    <div class="actions">
+      <button class="btn-cancel" onclick="closeModal('status-modal')">取消</button>
+      <button class="btn-cancel" onclick="clearStatus()">清除</button>
+      <button class="btn-primary" onclick="submitStatus()">保存</button>
     </div>
   </div>
 </div>
@@ -851,9 +878,10 @@ function getCookie(name) {
   return v ? v.pop() : '';
 }
 async function api(path, opts = {}) {
+  const { headers, ...rest } = opts;
   const res = await fetch(API + path, {
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken'), ...headers },
+    ...rest,
   });
   if (res.status === 204) return null;
   const data = await res.json();
@@ -863,14 +891,14 @@ async function api(path, opts = {}) {
 function toast(msg) {
   const el = document.createElement('div');
   el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
 
 function avatarInner(user) {
   if (user.avatar) return `<img src="${esc(user.avatar)}" alt="">`;
   const c = colorFor(user.username);
   return `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:linear-gradient(135deg,${c},${colorFor(user.username+'2')})">${esc(user.username.charAt(0).toUpperCase())}</span>`;
-}
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
 }
 function colorFor(name) {
   let h = 0;
@@ -966,20 +994,29 @@ async function uploadAvatar(input) {
 }
 
 async function editStatus() {
-  const text = prompt('设置你的状态（留空清除）:', currentUser.status_text || '');
-  if (text === null) return;
+  document.getElementById('status-input').value = currentUser.status_text || '';
+  document.getElementById('status-modal').classList.add('show');
+}
+
+async function submitStatus() {
+  const text = document.getElementById('status-input').value.trim();
   try {
     const data = await api('/me/status/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status_text: text }),
     });
     currentUser = data;
     const el = document.getElementById('my-status');
     el.textContent = data.status_text || '点击设置状态';
     el.style.opacity = data.status_text ? '1' : '0.5';
+    closeModal('status-modal');
     toast('状态已更新');
   } catch (e) { toast('更新失败'); }
+}
+
+async function clearStatus() {
+  document.getElementById('status-input').value = '';
+  await submitStatus();
 }
 
 // ===== 视图切换 =====
@@ -1159,7 +1196,7 @@ function buildMessageEl(m) {
         <div class="msg-text" id="msg-text-${m.id}">${renderMd(esc(m.content))}${edited}</div>
       </div>
       <div class="msg-actions">
-        <button class="msg-action-btn" onclick="startReply(${m.id}, '${esc(m.author.username)}', '${esc(m.content.substring(0,40))}')">回复</button>${ownActions}
+        <button class="msg-action-btn" onclick="startReply(${m.id})">回复</button>${ownActions}
       </div>
     </div>`;
   return div;
@@ -1237,7 +1274,11 @@ function _doConnectWS() {
 
 let replyingTo = null;
 
-function startReply(msgId, author, preview) {
+function startReply(msgId) {
+  const msgEl = document.querySelector(`.message[data-id="${msgId}"]`);
+  if (!msgEl) return;
+  const author = msgEl.querySelector('.msg-name')?.textContent?.split(/\s/)[0] || '';
+  const preview = msgEl.querySelector('.msg-text')?.textContent?.substring(0, 40) || '';
   replyingTo = msgId;
   document.getElementById('reply-info').textContent = `回复 @${author}: ${preview}`;
   document.getElementById('reply-bar').classList.add('active');
@@ -1287,21 +1328,36 @@ function renderTyping() {
 }
 
 // ===== 弹窗 =====
+let serverModalMode = 'create';
+
 function showServerModal() {
-  document.getElementById('server-modal-input').value = '';
+  serverModalMode = 'create';
+  document.getElementById('server-create-input').value = '';
+  document.getElementById('server-join-input').value = '';
+  switchServerTab('create');
   document.getElementById('server-modal').classList.add('show');
 }
 
+function switchServerTab(mode) {
+  serverModalMode = mode;
+  document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.modal-tab[onclick*="${mode}"]`).classList.add('active');
+  document.getElementById('server-tab-create').style.display = mode === 'create' ? 'block' : 'none';
+  document.getElementById('server-tab-join').style.display = mode === 'join' ? 'block' : 'none';
+}
+
 async function submitServerModal() {
-  const val = document.getElementById('server-modal-input').value.trim();
-  if (!val) return;
   try {
-    if (val.length <= 8 && /^[a-f0-9]+$/.test(val)) {
-      await api('/servers/join/', { method: 'POST', body: JSON.stringify({ invite_code: val }) });
-      toast('成功加入服务器');
-    } else {
-      await api('/servers/', { method: 'POST', body: JSON.stringify({ name: val }) });
+    if (serverModalMode === 'create') {
+      const name = document.getElementById('server-create-input').value.trim();
+      if (!name) return toast('请输入服务器名称');
+      await api('/servers/', { method: 'POST', body: JSON.stringify({ name }) });
       toast('服务器已创建');
+    } else {
+      const code = document.getElementById('server-join-input').value.trim();
+      if (!code) return toast('请输入邀请码');
+      await api('/servers/join/', { method: 'POST', body: JSON.stringify({ invite_code: code }) });
+      toast('成功加入服务器');
     }
     closeModal('server-modal');
     loadServers();
@@ -1461,13 +1517,13 @@ async function changeRole(userId, role) {
   removeCtxMenu();
   if (!currentServer) return;
   try {
-    await api(`/servers/${currentServer.id}/role/`, {
+    const data = await api(`/servers/${currentServer.id}/role/`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ user_id: userId, role }),
     });
+    toast(data.detail || '角色已更新');
     loadMembers();
-  } catch (e) { console.error(e); }
+  } catch (e) { toast(e.detail || '操作失败'); }
 }
 
 async function kickMember(userId, username) {
@@ -1477,11 +1533,11 @@ async function kickMember(userId, username) {
   try {
     await api(`/servers/${currentServer.id}/kick/`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ user_id: userId }),
     });
+    toast('已踢出该成员');
     loadMembers();
-  } catch (e) { console.error(e); }
+  } catch (e) { toast(e.detail || '操作失败'); }
 }
 
 function startDmFromMember(userId, username) {
@@ -1552,10 +1608,12 @@ async function loadDmMessages() {
       const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
       const c = colorFor(m.sender.username);
       div.innerHTML = `
-        <div class="msg-avatar">${avatarInner(m.sender)}</div>
-        <div class="msg-body">
-          <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
-          <div class="msg-text">${renderMd(esc(m.content))}</div>
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div class="msg-avatar">${avatarInner(m.sender)}</div>
+          <div class="msg-body">
+            <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
+            <div class="msg-text">${renderMd(esc(m.content))}</div>
+          </div>
         </div>`;
       container.appendChild(div);
     });
@@ -1618,10 +1676,12 @@ function appendDmMessage(m) {
   const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   const c = colorFor(m.sender.username);
   div.innerHTML = `
-    <div class="msg-avatar" style="background:linear-gradient(135deg,${c},${colorFor(m.sender.username+'2')})">${esc(m.sender.username.charAt(0).toUpperCase())}</div>
-    <div class="msg-body">
-      <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
-      <div class="msg-text">${renderMd(esc(m.content))}</div>
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div class="msg-avatar">${avatarInner(m.sender)}</div>
+      <div class="msg-body">
+        <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
+        <div class="msg-text">${renderMd(esc(m.content))}</div>
+      </div>
     </div>`;
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
