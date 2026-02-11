@@ -48,12 +48,22 @@ class ServerSerializer(serializers.ModelSerializer):
         return obj.memberships.count()
 
 
-class MessageSerializer(serializers.ModelSerializer):
+class ReplyInfoSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
 
     class Meta:
         model = Message
-        fields = ['id', 'content', 'author', 'channel', 'created_at', 'updated_at']
+        fields = ['id', 'content', 'author']
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
+    reply_to = ReplyInfoSerializer(read_only=True)
+    reply_to_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+
+    class Meta:
+        model = Message
+        fields = ['id', 'content', 'author', 'channel', 'reply_to', 'reply_to_id', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 

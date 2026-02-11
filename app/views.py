@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate, login, logout
 from django.db import IntegrityError
 
-from .models import User, Server, Channel, Message, Membership, DirectMessage
+from .models import User, Server, Channel, Message, Membership, DirectMessage, ChannelReadState
 from .serializers import (
     UserSerializer, RegisterSerializer, ServerSerializer,
     ChannelSerializer, MessageSerializer, MembershipSerializer,
@@ -102,6 +102,45 @@ class ServerViewSet(viewsets.ModelViewSet):
         ids = list(online_users.get(server.id, set()))
         return Response({'online_user_ids': ids})
 
+    @action(detail=True, methods=['post'], url_path='role')
+    def change_role(self, request, pk=None):
+        """修改成员角色（仅 owner 可操作）"""
+        server = self.get_object()
+        if server.owner != request.user:
+            return Response({'detail': '只有所有者可以修改角色'}, status=status.HTTP_403_FORBIDDEN)
+        user_id = request.data.get('user_id')
+        new_role = request.data.get('role')
+        if new_role not in ('admin', 'member'):
+            return Response({'detail': '无效的角色'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            ms = Membership.objects.get(user_id=user_id, server=server)
+        except Membership.DoesNotExist:
+            return Response({'detail': '该用户不在服务器中'}, status=status.HTTP_404_NOT_FOUND)
+        if ms.role == 'owner':
+            return Response({'detail': '不能修改所有者的角色'}, status=status.HTTP_400_BAD_REQUEST)
+        ms.role = new_role
+        ms.save()
+        return Response({'detail': f'已设为{ms.get_role_display()}'})
+
+    @action(detail=True, methods=['post'], url_path='kick')
+    def kick_member(self, request, pk=None):
+        """踢出成员（owner/admin 可操作）"""
+        server = self.get_object()
+        my_ms = Membership.objects.filter(user=request.user, server=server).first()
+        if not my_ms or my_ms.role not in ('owner', 'admin'):
+            return Response({'detail': '权限不足'}, status=status.HTTP_403_FORBIDDEN)
+        user_id = request.data.get('user_id')
+        try:
+            target_ms = Membership.objects.get(user_id=user_id, server=server)
+        except Membership.DoesNotExist:
+            return Response({'detail': '该用户不在服务器中'}, status=status.HTTP_404_NOT_FOUND)
+        if target_ms.role == 'owner':
+            return Response({'detail': '不能踢出所有者'}, status=status.HTTP_400_BAD_REQUEST)
+        if target_ms.role == 'admin' and my_ms.role != 'owner':
+            return Response({'detail': '只有所有者可以踢出管理员'}, status=status.HTTP_403_FORBIDDEN)
+        target_ms.delete()
+        return Response({'detail': '已踢出该成员'})
+
 
 class ChannelViewSet(viewsets.ModelViewSet):
     serializer_class = ChannelSerializer
@@ -139,7 +178,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Message.objects.filter(
             channel_id=self.kwargs.get('channel_pk'),
             channel__server__memberships__user=self.request.user,
-        ).select_related('author')
+        ).select_related('author', 'reply_to', 'reply_to__author')
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
@@ -253,3 +292,31 @@ def dm_messages(request, user_id):
             return Response({'detail': '内容不能为空'}, status=status.HTTP_400_BAD_REQUEST)
         dm = DirectMessage.objects.create(sender=request.user, receiver=other, content=content)
         return Response(DirectMessageSerializer(dm).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+def unread_counts(request):
+    """获取当前用户所有频道的未读消息数"""
+    from django.db.models import Q, Max, Count, Subquery, OuterRef
+    user = request.user
+    channels = Channel.objects.filter(server__memberships__user=user)
+    result = {}
+    for ch in channels:
+        state = ChannelReadState.objects.filter(user=user, channel=ch).first()
+        last_read = state.last_read_id if state else 0
+        count = Message.objects.filter(channel=ch, id__gt=last_read).exclude(author=user).count()
+        if count > 0:
+            result[ch.id] = count
+    return Response(result)
+
+
+@api_view(['POST'])
+def mark_read(request, channel_id):
+    """标记频道已读"""
+    last_msg = Message.objects.filter(channel_id=channel_id).order_by('-id').first()
+    if last_msg:
+        ChannelReadState.objects.update_or_create(
+            user=request.user, channel_id=channel_id,
+            defaults={'last_read_id': last_msg.id},
+        )
+    return Response({'ok': True})

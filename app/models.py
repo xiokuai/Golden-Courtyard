@@ -72,6 +72,7 @@ class Message(models.Model):
     content = models.TextField()
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='messages')
     channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name='messages')
+    reply_to = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -81,6 +82,17 @@ class Message(models.Model):
     class Meta:
         db_table = 'messages'
         ordering = ['created_at']
+
+
+class ChannelReadState(models.Model):
+    """频道已读状态"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='read_states')
+    channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name='read_states')
+    last_read_id = models.PositiveBigIntegerField(default=0)
+
+    class Meta:
+        db_table = 'channel_read_states'
+        unique_together = ('user', 'channel')
 
 
 class DirectMessage(models.Model):

@@ -69,7 +69,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             text = content.get('content', '').strip()
             if not text:
                 return
-            message = await self.save_message(text)
+            reply_to_id = content.get('reply_to')
+            message = await self.save_message(text, reply_to_id)
             await self.channel_layer.group_send(self.room_group, {
                 'type': 'chat_message',
                 'message': message,
@@ -147,11 +148,16 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         return None
 
     @database_sync_to_async
-    def save_message(self, text):
-        msg = Message.objects.create(
-            content=text, author=self.user, channel_id=self.channel_id,
-        )
-        return {
+    def save_message(self, text, reply_to_id=None):
+        kwargs = dict(content=text, author=self.user, channel_id=self.channel_id)
+        if reply_to_id:
+            try:
+                reply_msg = Message.objects.select_related('author').get(pk=reply_to_id)
+                kwargs['reply_to'] = reply_msg
+            except Message.DoesNotExist:
+                pass
+        msg = Message.objects.create(**kwargs)
+        result = {
             'id': msg.id,
             'content': msg.content,
             'author': {
@@ -161,7 +167,18 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             },
             'channel': msg.channel_id,
             'created_at': msg.created_at.isoformat(),
+            'reply_to': None,
         }
+        if msg.reply_to_id:
+            rt = msg.reply_to if hasattr(msg, '_reply_to_cache') else Message.objects.select_related('author').filter(pk=msg.reply_to_id).first()
+            if not rt:
+                rt = reply_msg
+            result['reply_to'] = {
+                'id': rt.id,
+                'content': rt.content,
+                'author': {'id': rt.author.id, 'username': rt.author.username},
+            }
+        return result
 
     @database_sync_to_async
     def edit_message(self, msg_id, new_content):

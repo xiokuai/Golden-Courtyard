@@ -191,6 +191,8 @@ body {
 .channel-item:hover svg { opacity: 0.7; }
 .channel-item.active { background: var(--bg-active); color: var(--text-primary); }
 .channel-item.active svg { opacity: 1; }
+.channel-badge { margin-left: auto; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 8px; min-width: 18px; text-align: center; }
+.channel-item.unread { color: var(--text-primary); font-weight: 600; }
 
 #user-bar {
   padding: 10px 12px; background: rgba(0,0,0,0.2);
@@ -264,6 +266,11 @@ body {
 .msg-name { font-weight: 600; color: var(--text-primary); font-size: 14px; }
 .msg-time { font-weight: 400; color: var(--text-muted); font-size: 11px; margin-left: 8px; }
 .msg-text { color: var(--text-secondary); font-size: 14px; margin-top: 3px; word-break: break-word; line-height: 1.5; }
+.msg-text code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-family: 'Consolas','Monaco',monospace; font-size: 13px; }
+.msg-text pre { background: rgba(0,0,0,0.3); padding: 10px 12px; border-radius: 8px; margin: 6px 0; overflow-x: auto; }
+.msg-text pre code { background: none; padding: 0; font-size: 13px; }
+.msg-text a { color: var(--accent); text-decoration: none; }
+.msg-text a:hover { text-decoration: underline; }
 
 /* 消息输入 */
 #message-form { padding: 0 20px 20px; }
@@ -422,6 +429,14 @@ body {
   margin-top: 4px;
 }
 .msg-editing .edit-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.msg-edited { font-size: 11px; color: var(--text-muted); margin-left: 4px; font-weight: 400; }
+.msg-reply-preview { font-size: 12px; color: var(--text-muted); padding: 4px 8px; margin-bottom: 2px; border-left: 2px solid var(--accent); cursor: pointer; }
+.msg-reply-preview:hover { color: var(--text-secondary); }
+.msg-reply-preview .reply-author { color: var(--accent); font-weight: 600; margin-right: 4px; }
+#reply-bar { display: none; align-items: center; padding: 8px 20px 0; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+#reply-bar.active { display: flex; }
+#reply-bar .reply-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+#reply-bar .reply-close:hover { background: var(--bg-hover); color: var(--text-primary); }
 
 /* ===== 私信面板 ===== */
 #dm-view { display: none; flex: 1; flex-direction: column; }
@@ -479,6 +494,24 @@ body {
 .ctx-menu-item:hover { background: var(--accent); color: #fff; }
 .ctx-menu-item.danger { color: var(--red); }
 .ctx-menu-item.danger:hover { background: var(--red); color: #fff; }
+
+/* ===== 移动端响应式 ===== */
+.mobile-toggle { display: none; }
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 90; }
+.mobile-overlay.show { display: block; }
+
+@media (max-width: 768px) {
+  #app { position: relative; }
+  #server-bar { display: none; position: fixed; left: 0; top: 0; bottom: 0; z-index: 101; width: 72px; }
+  #channel-sidebar { display: none; position: fixed; left: 72px; top: 0; bottom: 0; z-index: 100; width: 248px; }
+  #dm-sidebar { position: fixed !important; left: 0; top: 0; bottom: 0; z-index: 100; width: 280px; }
+  #member-panel { display: none; position: fixed; right: 0; top: 0; bottom: 0; z-index: 100; width: 240px; }
+  #app.show-sidebar #server-bar,
+  #app.show-sidebar #channel-sidebar { display: flex; }
+  #app.show-members #member-panel { display: flex; }
+  .mobile-toggle { display: flex; }
+  #main-area .header, #dm-view .header { padding-left: 8px; }
+}
 </style>
 </head>
 <body>
@@ -504,6 +537,7 @@ body {
 
 <!-- 主界面 -->
 <div id="app">
+  <div id="mobile-overlay" class="mobile-overlay" onclick="closeMobilePanels()"></div>
   <div id="server-bar"></div>
   <!-- 私信侧栏 -->
   <div id="dm-sidebar">
@@ -531,6 +565,9 @@ body {
   </div>
   <div id="main-area">
     <div class="header" id="channel-header">
+      <button class="icon-btn mobile-toggle" onclick="toggleMobileSidebar()" title="菜单">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <span class="header-hash">#</span> 选择频道
     </div>
     <div id="welcome">
@@ -542,6 +579,7 @@ body {
     </div>
     <div id="messages"></div>
     <div id="typing-indicator"></div>
+    <div id="reply-bar"><span id="reply-info"></span><button class="reply-close" onclick="cancelReply()">&times;</button></div>
     <div id="message-form">
       <form onsubmit="sendMessage(event)">
         <input id="msg-input" placeholder="发送消息..." autocomplete="off" oninput="sendTyping()" />
@@ -625,6 +663,7 @@ let dmWs = null;
 let typingTimer = null;
 let typingUsers = {};
 let onlineUserIds = new Set();
+let channelUnreads = {};
 
 function getCookie(name) {
   const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
@@ -652,6 +691,25 @@ function colorFor(name) {
   return COLORS[Math.abs(h) % COLORS.length];
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML.replace(/'/g, '&#39;').replace(/"/g, '&quot;'); }
+
+function renderMd(text) {
+  // text is already HTML-escaped via esc()
+  // Code blocks first (```...```)
+  text = text.replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code}</code></pre>`);
+  // Inline code
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Bold
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Strikethrough
+  text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
+  // Links (already escaped, so match &quot; or plain)
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // Auto-link URLs
+  text = text.replace(/(^|[^"=])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  return text;
+}
 
 // ===== 认证 =====
 function toggleAuth() {
@@ -754,10 +812,15 @@ async function selectServer(server) {
   document.getElementById('welcome').style.display = 'flex';
   document.getElementById('messages').style.display = 'none';
   document.getElementById('typing-indicator').innerHTML = '';
-  document.getElementById('channel-header').innerHTML = '<span class="header-hash">#</span> 选择频道';
+  document.getElementById('channel-header').innerHTML = '<button class="icon-btn mobile-toggle" onclick="toggleMobileSidebar()" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="header-hash">#</span> 选择频道';
   renderServerBar(await api('/servers/'));
+  await loadUnreads();
   renderChannels(server.channels);
   loadMembers();
+}
+
+async function loadUnreads() {
+  try { channelUnreads = await api('/unread/'); } catch (e) { console.error(e); }
 }
 
 function renderChannels(channels) {
@@ -770,8 +833,10 @@ function renderChannels(channels) {
   list.appendChild(label);
   channels.forEach(ch => {
     const el = document.createElement('div');
-    el.className = 'channel-item' + (currentChannel && currentChannel.id === ch.id ? ' active' : '');
-    el.innerHTML = hashSvg + esc(ch.name);
+    const unread = channelUnreads[ch.id] || 0;
+    const isActive = currentChannel && currentChannel.id === ch.id;
+    el.className = 'channel-item' + (isActive ? ' active' : '') + (!isActive && unread > 0 ? ' unread' : '');
+    el.innerHTML = hashSvg + esc(ch.name) + (unread > 0 && !isActive ? `<span class="channel-badge">${unread}</span>` : '');
     el.onclick = () => selectChannel(ch);
     list.appendChild(el);
   });
@@ -779,14 +844,17 @@ function renderChannels(channels) {
 
 async function selectChannel(ch) {
   currentChannel = ch;
-  document.getElementById('channel-header').innerHTML = '<span class="header-hash">#</span> ' + esc(ch.name);
+  document.getElementById('channel-header').innerHTML = '<button class="icon-btn mobile-toggle" onclick="toggleMobileSidebar()" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="header-hash">#</span> ' + esc(ch.name);
+  closeMobilePanels();
   document.getElementById('welcome').style.display = 'none';
   document.getElementById('messages').style.display = 'flex';
   document.getElementById('msg-input').placeholder = '在 #' + ch.name + ' 中发送消息...';
   document.getElementById('typing-indicator').innerHTML = '';
   typingUsers = {};
+  delete channelUnreads[ch.id];
   renderChannels(currentServer.channels);
   await loadMessages();
+  api(`/channels/${ch.id}/read/`, { method: 'POST', headers: {'Content-Type': 'application/json'} }).catch(() => {});
   connectWS();
 }
 
@@ -833,18 +901,25 @@ function buildMessageEl(m) {
   div.className = 'message';
   div.dataset.id = m.id;
   const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  const edited = (m.updated_at && m.created_at && m.updated_at !== m.created_at) ? '<span class="msg-edited">(已编辑)</span>' : '';
   const c = colorFor(m.author.username);
   const isOwn = m.author.id === currentUser.id;
-  const actions = isOwn ? `<div class="msg-actions">
+  const replyHtml = m.reply_to ? `<div class="msg-reply-preview" onclick="scrollToMsg(${m.reply_to.id})"><span class="reply-author">@${esc(m.reply_to.author.username)}</span>${esc((m.reply_to.content || '').substring(0, 60))}</div>` : '';
+  const ownActions = isOwn ? `
     <button class="msg-action-btn" onclick="startEdit(${m.id}, this)">编辑</button>
-    <button class="msg-action-btn danger" onclick="deleteMsg(${m.id})">删除</button>
-  </div>` : '';
+    <button class="msg-action-btn danger" onclick="deleteMsg(${m.id})">删除</button>` : '';
   div.innerHTML = `
-    <div class="msg-avatar" style="background:linear-gradient(135deg,${c},${colorFor(m.author.username+'2')})">${esc(m.author.username.charAt(0).toUpperCase())}</div>
-    <div class="msg-body">
-      <div class="msg-name" style="color:${c}">${esc(m.author.username)}<span class="msg-time">${time}</span></div>
-      <div class="msg-text" id="msg-text-${m.id}">${esc(m.content)}</div>
-    </div>${actions}`;
+    ${replyHtml}
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div class="msg-avatar" style="background:linear-gradient(135deg,${c},${colorFor(m.author.username+'2')})">${esc(m.author.username.charAt(0).toUpperCase())}</div>
+      <div class="msg-body">
+        <div class="msg-name" style="color:${c}">${esc(m.author.username)}<span class="msg-time">${time}</span></div>
+        <div class="msg-text" id="msg-text-${m.id}">${renderMd(esc(m.content))}${edited}</div>
+      </div>
+      <div class="msg-actions">
+        <button class="msg-action-btn" onclick="startReply(${m.id}, '${esc(m.author.username)}', '${esc(m.content.substring(0,40))}')">回复</button>${ownActions}
+      </div>
+    </div>`;
   return div;
 }
 
@@ -900,7 +975,7 @@ function _doConnectWS() {
       showTyping(data.username);
     } else if (data.type === 'edit') {
       const el = document.getElementById('msg-text-' + data.id);
-      if (el) el.textContent = data.content;
+      if (el) el.innerHTML = renderMd(esc(data.content)) + '<span class="msg-edited">(已编辑)</span>';
     } else if (data.type === 'delete') {
       const msg = document.querySelector(`.message[data-id="${data.message_id}"]`);
       if (msg) { msg.style.animation = 'none'; msg.style.opacity = '0'; setTimeout(() => msg.remove(), 200); }
@@ -918,13 +993,35 @@ function _doConnectWS() {
   };
 }
 
+let replyingTo = null;
+
+function startReply(msgId, author, preview) {
+  replyingTo = msgId;
+  document.getElementById('reply-info').textContent = `回复 @${author}: ${preview}`;
+  document.getElementById('reply-bar').classList.add('active');
+  document.getElementById('msg-input').focus();
+}
+
+function cancelReply() {
+  replyingTo = null;
+  document.getElementById('reply-bar').classList.remove('active');
+}
+
+function scrollToMsg(msgId) {
+  const el = document.querySelector(`.message[data-id="${msgId}"]`);
+  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.background = 'var(--accent-light)'; setTimeout(() => el.style.background = '', 1500); }
+}
+
 function sendMessage(e) {
   e.preventDefault();
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
   if (!text || !ws) return;
-  ws.send(JSON.stringify({ type: 'message', content: text }));
+  const payload = { type: 'message', content: text };
+  if (replyingTo) { payload.reply_to = replyingTo; }
+  ws.send(JSON.stringify(payload));
   input.value = '';
+  cancelReply();
 }
 
 // ===== 输入指示器 =====
@@ -1053,24 +1150,95 @@ function makeMemberEl(membership, isOnline) {
       <div class="member-role">${esc(membership.role)}</div>
     </div>`;
   el.oncontextmenu = (e) => {
-    if (m.id !== currentUser.id) showMemberCtx(e, m);
+    if (m.id !== currentUser.id) showMemberCtx(e, m, membership);
   };
   return el;
 }
 
-function showMemberCtx(e, user) {
+function getMyRole() {
+  const ms = (window._memberships || []).find(m => m.user.id === currentUser.id);
+  return ms ? ms.role : null;
+}
+
+function showMemberCtx(e, user, membership) {
   e.preventDefault();
   removeCtxMenu();
   const menu = document.createElement('div');
   menu.className = 'ctx-menu';
   menu.style.left = e.clientX + 'px';
   menu.style.top = e.clientY + 'px';
-  const item = document.createElement('div');
-  item.className = 'ctx-menu-item';
-  item.textContent = '发送私信';
-  item.onclick = () => startDmFromMember(user.id, user.username);
-  menu.appendChild(item);
+
+  // 发送私信
+  const dmItem = document.createElement('div');
+  dmItem.className = 'ctx-menu-item';
+  dmItem.textContent = '发送私信';
+  dmItem.onclick = () => startDmFromMember(user.id, user.username);
+  menu.appendChild(dmItem);
+
+  const myRole = getMyRole();
+  const targetRole = membership.role;
+
+  // 角色管理（仅 owner）
+  if (myRole === 'owner' && targetRole !== 'owner') {
+    const sep = document.createElement('div');
+    sep.style.cssText = 'height:1px;background:var(--border);margin:4px 0;';
+    menu.appendChild(sep);
+
+    if (targetRole !== 'admin') {
+      const setAdmin = document.createElement('div');
+      setAdmin.className = 'ctx-menu-item';
+      setAdmin.textContent = '设为管理员';
+      setAdmin.onclick = () => changeRole(user.id, 'admin');
+      menu.appendChild(setAdmin);
+    }
+    if (targetRole !== 'member') {
+      const setMember = document.createElement('div');
+      setMember.className = 'ctx-menu-item';
+      setMember.textContent = '设为成员';
+      setMember.onclick = () => changeRole(user.id, 'member');
+      menu.appendChild(setMember);
+    }
+  }
+
+  // 踢出（owner 可踢任何人，admin 可踢 member）
+  if ((myRole === 'owner' && targetRole !== 'owner') ||
+      (myRole === 'admin' && targetRole === 'member')) {
+    const kickItem = document.createElement('div');
+    kickItem.className = 'ctx-menu-item';
+    kickItem.style.color = 'var(--red)';
+    kickItem.textContent = '踢出服务器';
+    kickItem.onclick = () => kickMember(user.id, user.username);
+    menu.appendChild(kickItem);
+  }
+
   document.body.appendChild(menu);
+}
+
+async function changeRole(userId, role) {
+  removeCtxMenu();
+  if (!currentServer) return;
+  try {
+    await api(`/servers/${currentServer.id}/role/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ user_id: userId, role }),
+    });
+    loadMembers();
+  } catch (e) { console.error(e); }
+}
+
+async function kickMember(userId, username) {
+  removeCtxMenu();
+  if (!currentServer) return;
+  if (!confirm(`确定要将 ${username} 踢出服务器吗？`)) return;
+  try {
+    await api(`/servers/${currentServer.id}/kick/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ user_id: userId }),
+    });
+    loadMembers();
+  } catch (e) { console.error(e); }
 }
 
 function startDmFromMember(userId, username) {
@@ -1144,7 +1312,7 @@ async function loadDmMessages() {
         <div class="msg-avatar" style="background:linear-gradient(135deg,${c},${colorFor(m.sender.username+'2')})">${esc(m.sender.username.charAt(0).toUpperCase())}</div>
         <div class="msg-body">
           <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
-          <div class="msg-text">${esc(m.content)}</div>
+          <div class="msg-text">${renderMd(esc(m.content))}</div>
         </div>`;
       container.appendChild(div);
     });
@@ -1210,10 +1378,33 @@ function appendDmMessage(m) {
     <div class="msg-avatar" style="background:linear-gradient(135deg,${c},${colorFor(m.sender.username+'2')})">${esc(m.sender.username.charAt(0).toUpperCase())}</div>
     <div class="msg-body">
       <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
-      <div class="msg-text">${esc(m.content)}</div>
+      <div class="msg-text">${renderMd(esc(m.content))}</div>
     </div>`;
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
+}
+
+// ===== 移动端面板切换 =====
+function toggleMobileSidebar() {
+  const app = document.getElementById('app');
+  const show = !app.classList.contains('show-sidebar');
+  app.classList.toggle('show-sidebar', show);
+  app.classList.remove('show-members');
+  document.getElementById('mobile-overlay').classList.toggle('show', show);
+}
+
+function toggleMobileMembers() {
+  const app = document.getElementById('app');
+  const show = !app.classList.contains('show-members');
+  app.classList.toggle('show-members', show);
+  app.classList.remove('show-sidebar');
+  document.getElementById('mobile-overlay').classList.toggle('show', show);
+}
+
+function closeMobilePanels() {
+  const app = document.getElementById('app');
+  app.classList.remove('show-sidebar', 'show-members');
+  document.getElementById('mobile-overlay').classList.remove('show');
 }
 
 // ===== 右键菜单 =====

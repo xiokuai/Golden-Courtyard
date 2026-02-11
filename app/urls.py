@@ -14,12 +14,18 @@ urlpatterns = [
     path('servers/<int:pk>/members/', views.ServerViewSet.as_view({'get': 'members'})),
     path('servers/<int:pk>/leave/', views.ServerViewSet.as_view({'post': 'leave_server'})),
     path('servers/<int:pk>/online/', views.ServerViewSet.as_view({'get': 'online_members'})),
+    path('servers/<int:pk>/role/', views.ServerViewSet.as_view({'post': 'change_role'})),
+    path('servers/<int:pk>/kick/', views.ServerViewSet.as_view({'post': 'kick_member'})),
 
     # 频道
     path('servers/<int:server_pk>/channels/',
          views.ChannelViewSet.as_view({'get': 'list', 'post': 'create'})),
     path('servers/<int:server_pk>/channels/<int:pk>/',
          views.ChannelViewSet.as_view({'get': 'retrieve', 'delete': 'destroy'})),
+
+    # 未读
+    path('unread/', views.unread_counts),
+    path('channels/<int:channel_id>/read/', views.mark_read),
 
     # 消息
     path('channels/<int:channel_pk>/messages/',
