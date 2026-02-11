@@ -5,8 +5,9 @@ import uuid
 
 class User(AbstractUser):
     """自定义用户，扩展头像和在线状态"""
-    avatar = models.URLField(blank=True, default='')
+    avatar = models.ImageField(upload_to='avatars/', blank=True, default='')
     online = models.BooleanField(default=False)
+    status_text = models.CharField(max_length=100, blank=True, default='')
 
     class Meta:
         db_table = 'users'
@@ -15,7 +16,7 @@ class User(AbstractUser):
 class Server(models.Model):
     """服务器 (类似 Discord 的 Guild)"""
     name = models.CharField(max_length=100)
-    icon = models.URLField(blank=True, default='')
+    icon = models.ImageField(upload_to='server_icons/', blank=True, default='')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_servers')
     invite_code = models.CharField(max_length=20, unique=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)

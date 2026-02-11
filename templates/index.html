@@ -27,6 +27,25 @@
   --radius: 12px;
 }
 
+[data-theme="light"] {
+  --bg-primary: #f0f0f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e8e8f0;
+  --bg-surface: rgba(0,0,0,0.03);
+  --bg-hover: rgba(0,0,0,0.05);
+  --bg-active: rgba(0,0,0,0.08);
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-light: rgba(124,58,237,0.12);
+  --green: #10b981;
+  --red: #ef4444;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: rgba(0,0,0,0.08);
+  --shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -211,6 +230,34 @@ body {
   background: var(--green); border: 2px solid var(--bg-primary);
 }
 #user-bar .username { color: #fff; font-weight: 600; flex: 1; }
+#user-bar .user-status { font-size: 11px; color: var(--text-muted); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
+#user-bar .user-status:hover { color: var(--text-secondary); }
+.user-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* 主题设置面板 */
+#theme-panel {
+  display: none; position: fixed; bottom: 60px; left: 80px;
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; z-index: 1000;
+  box-shadow: var(--shadow); min-width: 200px;
+}
+#theme-panel.show { display: block; }
+#theme-panel h4 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.theme-toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.theme-toggle-row span { font-size: 13px; color: var(--text-secondary); }
+.toggle-switch { width: 40px; height: 22px; background: var(--bg-tertiary); border-radius: 11px; cursor: pointer; position: relative; transition: background 0.2s; }
+.toggle-switch.active { background: var(--accent); }
+.toggle-switch::after { content: ''; position: absolute; width: 18px; height: 18px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.2s; }
+.toggle-switch.active::after { transform: translateX(18px); }
+.accent-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+.accent-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s, transform 0.15s; }
+.accent-dot:hover { transform: scale(1.15); }
+.accent-dot.active { border-color: var(--text-primary); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+[data-theme="light"] #auth-page { background: linear-gradient(135deg, #e0e7ff, #f0f0ff, #e8e0f0); }
+[data-theme="light"] .auth-box { background: rgba(255,255,255,0.85); }
+
 #user-bar button {
   background: none; border: none; color: var(--text-muted);
   cursor: pointer; font-size: 12px; font-family: inherit;
@@ -260,7 +307,10 @@ body {
 .msg-avatar {
   width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 15px; color: #fff;
+  font-weight: 700; font-size: 15px; color: #fff; overflow: hidden;
+}
+.msg-avatar img, .member-avatar img, .dm-item-avatar img, .user-avatar-small img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
 }
 .msg-body { min-width: 0; flex: 1; }
 .msg-name { font-weight: 600; color: var(--text-primary); font-size: 14px; }
@@ -390,6 +440,7 @@ body {
 .member-item.offline .member-name { color: var(--text-muted); }
 .member-item.offline .member-avatar { opacity: 0.45; }
 .member-role { font-size: 10px; color: var(--text-muted); }
+.member-status { font-size: 10px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
 
 /* ===== 输入指示器 ===== */
 #typing-indicator {
@@ -495,6 +546,30 @@ body {
 .ctx-menu-item.danger { color: var(--red); }
 .ctx-menu-item.danger:hover { background: var(--red); color: #fff; }
 
+/* 用户资料卡片 */
+#profile-card {
+  display: none; position: fixed; z-index: 1001;
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  width: 280px; overflow: hidden;
+}
+#profile-card.show { display: block; }
+.profile-banner { height: 60px; background: linear-gradient(135deg, var(--accent), var(--bg-tertiary)); }
+.profile-body { padding: 0 16px 16px; position: relative; }
+.profile-avatar {
+  width: 64px; height: 64px; border-radius: 50%; margin-top: -32px;
+  border: 4px solid var(--bg-secondary); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 700; color: #fff;
+}
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.profile-name { font-size: 18px; font-weight: 700; margin-top: 8px; }
+.profile-status-text { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.profile-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.profile-section h5 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.profile-section p { font-size: 13px; color: var(--text-secondary); }
+.profile-online-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
 /* ===== 移动端响应式 ===== */
 .mobile-toggle { display: none; }
 .mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 90; }
@@ -556,11 +631,41 @@ body {
     </div>
     <div id="channel-list"></div>
     <div id="user-bar">
-      <div class="user-avatar-small" id="my-avatar">
+      <div class="user-avatar-small" id="my-avatar" onclick="document.getElementById('avatar-input').click()" style="cursor:pointer;" title="点击更换头像">
         <div class="status-dot"></div>
       </div>
-      <span class="username" id="my-name"></span>
+      <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(this)" />
+      <div class="user-info">
+        <span class="username" id="my-name"></span>
+        <span class="user-status" id="my-status" onclick="editStatus()" title="点击设置状态"></span>
+      </div>
+      <button onclick="toggleThemePanel()" title="主题设置">⚙</button>
       <button onclick="doLogout()">登出</button>
+    </div>
+    <div id="theme-panel">
+      <h4>主题设置</h4>
+      <div class="theme-toggle-row">
+        <span>浅色模式</span>
+        <div class="toggle-switch" id="theme-switch" onclick="toggleLightDark()"></div>
+      </div>
+      <h4>主题色</h4>
+      <div class="accent-colors" id="accent-colors"></div>
+    </div>
+  </div>
+  <div id="profile-card">
+    <div class="profile-banner" id="profile-banner"></div>
+    <div class="profile-body">
+      <div class="profile-avatar" id="profile-avatar"></div>
+      <div class="profile-name" id="profile-name"></div>
+      <div class="profile-status-text" id="profile-status"></div>
+      <div class="profile-section" id="profile-role-section">
+        <h5>角色</h5>
+        <p id="profile-role"></p>
+      </div>
+      <div class="profile-section">
+        <h5>状态</h5>
+        <p id="profile-online"><span class="profile-online-dot"></span></p>
+      </div>
     </div>
   </div>
   <div id="main-area">
@@ -665,6 +770,82 @@ let typingUsers = {};
 let onlineUserIds = new Set();
 let channelUnreads = {};
 
+const ACCENT_PRESETS = [
+  { name: '紫色', color: '#7c3aed', hover: '#6d28d9' },
+  { name: '蓝色', color: '#2563eb', hover: '#1d4ed8' },
+  { name: '青色', color: '#0891b2', hover: '#0e7490' },
+  { name: '绿色', color: '#10b981', hover: '#059669' },
+  { name: '橙色', color: '#ea580c', hover: '#c2410c' },
+  { name: '粉色', color: '#db2777', hover: '#be185d' },
+];
+
+function initTheme() {
+  const theme = localStorage.getItem('chat-theme') || 'dark';
+  const accent = localStorage.getItem('chat-accent') || '#7c3aed';
+  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  applyAccent(accent);
+  renderAccentDots(accent);
+  const sw = document.getElementById('theme-switch');
+  if (sw && theme === 'light') sw.classList.add('active');
+}
+
+function toggleLightDark() {
+  const sw = document.getElementById('theme-switch');
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  if (isLight) {
+    document.documentElement.removeAttribute('data-theme');
+    sw.classList.remove('active');
+    localStorage.setItem('chat-theme', 'dark');
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    sw.classList.add('active');
+    localStorage.setItem('chat-theme', 'light');
+  }
+}
+
+function applyAccent(color) {
+  const preset = ACCENT_PRESETS.find(p => p.color === color);
+  const hover = preset ? preset.hover : color;
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent-hover', hover);
+  document.documentElement.style.setProperty('--accent-light', color + '26');
+}
+
+function selectAccent(color) {
+  applyAccent(color);
+  localStorage.setItem('chat-accent', color);
+  renderAccentDots(color);
+}
+
+function renderAccentDots(activeColor) {
+  const container = document.getElementById('accent-colors');
+  if (!container) return;
+  container.innerHTML = '';
+  ACCENT_PRESETS.forEach(p => {
+    const dot = document.createElement('div');
+    dot.className = 'accent-dot' + (p.color === activeColor ? ' active' : '');
+    dot.style.background = p.color;
+    dot.title = p.name;
+    dot.onclick = () => selectAccent(p.color);
+    container.appendChild(dot);
+  });
+}
+
+function toggleThemePanel() {
+  const panel = document.getElementById('theme-panel');
+  panel.classList.toggle('show');
+}
+
+// 点击面板外关闭
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('theme-panel');
+  if (panel && panel.classList.contains('show') && !panel.contains(e.target) && !e.target.closest('[onclick*="toggleThemePanel"]')) {
+    panel.classList.remove('show');
+  }
+});
+
+initTheme();
+
 function getCookie(name) {
   const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
   return v ? v.pop() : '';
@@ -682,6 +863,12 @@ async function api(path, opts = {}) {
 function toast(msg) {
   const el = document.createElement('div');
   el.className = 'toast'; el.textContent = msg;
+
+function avatarInner(user) {
+  if (user.avatar) return `<img src="${esc(user.avatar)}" alt="">`;
+  const c = colorFor(user.username);
+  return `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:linear-gradient(135deg,${c},${colorFor(user.username+'2')})">${esc(user.username.charAt(0).toUpperCase())}</span>`;
+}
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }
@@ -736,13 +923,64 @@ function enterApp() {
   document.getElementById('auth-page').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   document.getElementById('my-name').textContent = currentUser.username;
+  const statusEl = document.getElementById('my-status');
+  statusEl.textContent = currentUser.status_text || '点击设置状态';
+  statusEl.style.opacity = currentUser.status_text ? '1' : '0.5';
   const av = document.getElementById('my-avatar');
-  av.textContent = currentUser.username.charAt(0).toUpperCase();
-  av.style.background = `linear-gradient(135deg, ${colorFor(currentUser.username)}, ${colorFor(currentUser.username + '2')})`;
+  if (currentUser.avatar) {
+    av.innerHTML = `<img src="${esc(currentUser.avatar)}" alt=""><div class="status-dot"></div>`;
+  } else {
+    av.innerHTML = `${currentUser.username.charAt(0).toUpperCase()}<div class="status-dot"></div>`;
+    av.style.background = `linear-gradient(135deg, ${colorFor(currentUser.username)}, ${colorFor(currentUser.username + '2')})`;
+  }
   loadServers();
   connectDmWs();
 }
 async function doLogout() { await api('/logout/', { method: 'POST' }); location.reload(); }
+
+async function uploadAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast('图片不能超过2MB'); return; }
+  const fd = new FormData();
+  fd.append('avatar', file);
+  try {
+    const res = await fetch(API + '/me/avatar/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      credentials: 'same-origin',
+      body: fd,
+    });
+    const data = await res.json();
+    if (res.ok) {
+      currentUser = data;
+      const av = document.getElementById('my-avatar');
+      av.innerHTML = `<img src="${esc(data.avatar)}" alt=""><div class="status-dot"></div>`;
+      av.style.background = 'none';
+      toast('头像已更新');
+    } else {
+      toast(data.detail || '上传失败');
+    }
+  } catch (e) { toast('上传失败'); }
+  input.value = '';
+}
+
+async function editStatus() {
+  const text = prompt('设置你的状态（留空清除）:', currentUser.status_text || '');
+  if (text === null) return;
+  try {
+    const data = await api('/me/status/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status_text: text }),
+    });
+    currentUser = data;
+    const el = document.getElementById('my-status');
+    el.textContent = data.status_text || '点击设置状态';
+    el.style.opacity = data.status_text ? '1' : '0.5';
+    toast('状态已更新');
+  } catch (e) { toast('更新失败'); }
+}
 
 // ===== 视图切换 =====
 function showServerView() {
@@ -785,10 +1023,14 @@ function renderServerBar(servers) {
   servers.forEach(s => {
     const el = document.createElement('div');
     el.className = 'server-icon' + (!dmMode && currentServer && currentServer.id === s.id ? ' active' : '');
-    el.textContent = s.name.charAt(0).toUpperCase();
     el.title = s.name;
-    if (!(!dmMode && currentServer && currentServer.id === s.id))
-      el.style.background = `linear-gradient(135deg, ${colorFor(s.name)}, ${colorFor(s.name+'x')})`;
+    if (s.icon) {
+      el.innerHTML = `<img src="${esc(s.icon)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+    } else {
+      el.textContent = s.name.charAt(0).toUpperCase();
+      if (!(!dmMode && currentServer && currentServer.id === s.id))
+        el.style.background = `linear-gradient(135deg, ${colorFor(s.name)}, ${colorFor(s.name+'x')})`;
+    }
     el.onclick = () => { showServerView(); selectServer(s); };
     el.oncontextmenu = (e) => showServerCtx(e, s);
     bar.appendChild(el);
@@ -911,7 +1153,7 @@ function buildMessageEl(m) {
   div.innerHTML = `
     ${replyHtml}
     <div style="display:flex;align-items:flex-start;gap:12px;">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,${c},${colorFor(m.author.username+'2')})">${esc(m.author.username.charAt(0).toUpperCase())}</div>
+      <div class="msg-avatar">${avatarInner(m.author)}</div>
       <div class="msg-body">
         <div class="msg-name" style="color:${c}">${esc(m.author.username)}<span class="msg-time">${time}</span></div>
         <div class="msg-text" id="msg-text-${m.id}">${renderMd(esc(m.content))}${edited}</div>
@@ -1139,19 +1381,20 @@ function makeMemberEl(membership, isOnline) {
   const m = membership.user;
   const el = document.createElement('div');
   el.className = 'member-item' + (isOnline ? '' : ' offline');
-  const c = colorFor(m.username);
   el.innerHTML = `
-    <div class="member-avatar" style="background:linear-gradient(135deg,${c},${colorFor(m.username+'2')})">
-      ${esc(m.username.charAt(0).toUpperCase())}
+    <div class="member-avatar">
+      ${avatarInner(m)}
       <div class="dot ${isOnline ? 'dot-online' : 'dot-offline'}"></div>
     </div>
     <div class="member-info">
       <div class="member-name">${esc(m.username)}</div>
-      <div class="member-role">${esc(membership.role)}</div>
+      ${m.status_text ? `<div class="member-status">${esc(m.status_text)}</div>` : `<div class="member-role">${esc(membership.role)}</div>`}
     </div>`;
   el.oncontextmenu = (e) => {
     if (m.id !== currentUser.id) showMemberCtx(e, m, membership);
   };
+  el.onclick = (e) => showProfileCard(e, m, membership);
+  el.style.cursor = 'pointer';
   return el;
 }
 
@@ -1258,7 +1501,7 @@ async function loadDmConversations() {
       el.className = 'dm-item' + (currentDmUser && currentDmUser.id === c.user.id ? ' active' : '');
       const col = colorFor(c.user.username);
       el.innerHTML = `
-        <div class="dm-item-avatar" style="background:linear-gradient(135deg,${col},${colorFor(c.user.username+'2')})">${esc(c.user.username.charAt(0).toUpperCase())}</div>
+        <div class="dm-item-avatar">${avatarInner(c.user)}</div>
         <div class="dm-item-info">
           <div class="dm-item-name">${esc(c.user.username)}</div>
           <div class="dm-item-preview">${esc(c.last_message)}</div>
@@ -1281,7 +1524,7 @@ async function searchDmUser(query) {
       el.className = 'dm-item';
       const col = colorFor(u.username);
       el.innerHTML = `
-        <div class="dm-item-avatar" style="background:linear-gradient(135deg,${col},${colorFor(u.username+'2')})">${esc(u.username.charAt(0).toUpperCase())}</div>
+        <div class="dm-item-avatar">${avatarInner(u)}</div>
         <div class="dm-item-info"><div class="dm-item-name">${esc(u.username)}</div></div>`;
       el.onclick = () => selectDmUser(u);
       list.appendChild(el);
@@ -1309,7 +1552,7 @@ async function loadDmMessages() {
       const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
       const c = colorFor(m.sender.username);
       div.innerHTML = `
-        <div class="msg-avatar" style="background:linear-gradient(135deg,${c},${colorFor(m.sender.username+'2')})">${esc(m.sender.username.charAt(0).toUpperCase())}</div>
+        <div class="msg-avatar">${avatarInner(m.sender)}</div>
         <div class="msg-body">
           <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
           <div class="msg-text">${renderMd(esc(m.content))}</div>
@@ -1407,6 +1650,60 @@ function closeMobilePanels() {
   document.getElementById('mobile-overlay').classList.remove('show');
 }
 
+// ===== 用户资料卡片 =====
+function showProfileCard(e, user, membership) {
+  const card = document.getElementById('profile-card');
+  // 头像
+  const av = document.getElementById('profile-avatar');
+  if (user.avatar) {
+    av.innerHTML = `<img src="${esc(user.avatar)}" alt="">`;
+    av.style.background = 'none';
+  } else {
+    const c = colorFor(user.username);
+    av.innerHTML = user.username.charAt(0).toUpperCase();
+    av.style.background = `linear-gradient(135deg, ${c}, ${colorFor(user.username+'2')})`;
+  }
+  // banner 颜色
+  document.getElementById('profile-banner').style.background =
+    `linear-gradient(135deg, ${colorFor(user.username)}, var(--bg-tertiary))`;
+  // 名称和状态
+  document.getElementById('profile-name').textContent = user.username;
+  const statusEl = document.getElementById('profile-status');
+  statusEl.textContent = user.status_text || '';
+  statusEl.style.display = user.status_text ? 'block' : 'none';
+  // 角色
+  const roleSection = document.getElementById('profile-role-section');
+  if (membership) {
+    roleSection.style.display = 'block';
+    const roleMap = { owner: '所有者', admin: '管理员', member: '成员' };
+    document.getElementById('profile-role').textContent = roleMap[membership.role] || membership.role;
+  } else {
+    roleSection.style.display = 'none';
+  }
+  // 在线状态
+  const isOnline = onlineUserIds.has(user.id);
+  const onlineEl = document.getElementById('profile-online');
+  const dotColor = isOnline ? 'var(--green)' : 'var(--text-muted)';
+  onlineEl.innerHTML = `<span class="profile-online-dot" style="background:${dotColor}"></span>${isOnline ? '在线' : '离线'}`;
+  // 定位
+  const rect = e.currentTarget.getBoundingClientRect();
+  let left = rect.right + 10;
+  let top = rect.top;
+  if (left + 280 > window.innerWidth) left = rect.left - 290;
+  if (top + 300 > window.innerHeight) top = window.innerHeight - 310;
+  if (top < 10) top = 10;
+  card.style.left = left + 'px';
+  card.style.top = top + 'px';
+  card.classList.add('show');
+}
+
+document.addEventListener('click', (e) => {
+  const card = document.getElementById('profile-card');
+  if (card && card.classList.contains('show') && !card.contains(e.target) && !e.target.closest('.member-item')) {
+    card.classList.remove('show');
+  }
+});
+
 // ===== 右键菜单 =====
 function removeCtxMenu() {
   document.querySelectorAll('.ctx-menu').forEach(el => el.remove());
@@ -1425,6 +1722,14 @@ function showServerCtx(e, server) {
   inviteItem.textContent = '邀请码';
   inviteItem.onclick = () => { removeCtxMenu(); showInviteFor(server.invite_code); };
   menu.appendChild(inviteItem);
+
+  if (server.owner && server.owner.id === currentUser.id) {
+    const iconItem = document.createElement('div');
+    iconItem.className = 'ctx-menu-item';
+    iconItem.textContent = '更换图标';
+    iconItem.onclick = () => { removeCtxMenu(); pickServerIcon(server.id); };
+    menu.appendChild(iconItem);
+  }
 
   const actionItem = document.createElement('div');
   actionItem.className = 'ctx-menu-item danger';
@@ -1459,6 +1764,35 @@ async function leaveServer(serverId) {
     document.getElementById('invite-btn').style.display = 'none';
     loadServers();
   } catch (e) { toast(e.detail || '操作失败'); }
+}
+
+function pickServerIcon(serverId) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = () => uploadServerIcon(serverId, input.files[0]);
+  input.click();
+}
+
+async function uploadServerIcon(serverId, file) {
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast('图片不能超过2MB'); return; }
+  const fd = new FormData();
+  fd.append('icon', file);
+  try {
+    const res = await fetch(API + `/servers/${serverId}/icon/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      credentials: 'same-origin',
+      body: fd,
+    });
+    const data = await res.json();
+    if (res.ok) {
+      if (currentServer && currentServer.id === serverId) currentServer = data;
+      toast('图标已更新');
+      loadServers();
+    } else { toast(data.detail || '上传失败'); }
+  } catch (e) { toast('上传失败'); }
 }
 
 async function deleteServer(serverId) {

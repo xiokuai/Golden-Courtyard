@@ -3,9 +3,19 @@ from .models import User, Server, Channel, Message, Membership, DirectMessage
 
 
 class UserSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'avatar', 'online']
+        fields = ['id', 'username', 'avatar', 'online', 'status_text']
+
+    def get_avatar(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return ''
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -38,6 +48,7 @@ class ServerSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     channels = ChannelSerializer(many=True, read_only=True)
     member_count = serializers.SerializerMethodField()
+    icon = serializers.SerializerMethodField()
 
     class Meta:
         model = Server
@@ -46,6 +57,14 @@ class ServerSerializer(serializers.ModelSerializer):
 
     def get_member_count(self, obj):
         return obj.memberships.count()
+
+    def get_icon(self, obj):
+        if obj.icon:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.icon.url)
+            return obj.icon.url
+        return ''
 
 
 class ReplyInfoSerializer(serializers.ModelSerializer):

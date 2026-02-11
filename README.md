@@ -13,12 +13,17 @@
 - 通过邀请码加入服务器
 - 服务器内创建多个文字频道
 - 基于角色的权限控制（owner / admin / member）
+- 角色管理：设置管理员、踢出成员
+- 服务器图标上传
 
 **实时消息**
 - WebSocket 实时收发消息
 - 消息编辑与删除
+- 消息回复（引用）
+- Markdown 渲染（代码块、加粗、斜体、链接等）
 - 输入状态指示器（正在输入...）
 - 滚动加载历史消息（每次 50 条分页）
+- 频道未读消息追踪与角标
 - 断线自动重连（指数退避）
 
 **私信系统**
@@ -27,10 +32,21 @@
 - 未读消息计数
 - 右键成员面板快速发起私信
 
+**个性化**
+- 用户头像上传（限 2MB）
+- 自定义状态消息
+- 深色/浅色主题切换
+- 6 种主题色可选，设置持久化
+- 用户资料卡片（点击成员查看）
+
 **在线状态**
 - 实时在线/离线状态追踪
 - 成员面板分组显示在线与离线用户
 - 状态同步写入数据库
+
+**移动端适配**
+- 响应式布局（≤768px）
+- 侧栏折叠与汉堡菜单
 
 ## 技术栈
 
@@ -75,7 +91,7 @@ python manage.py runserver
 ```
 Golden-Courtyard/
 ├── app/                  # 主应用
-│   ├── models.py         # 数据模型（User, Server, Channel, Message, DM）
+│   ├── models.py         # 数据模型（User, Server, Channel, Message, DM 等）
 │   ├── views.py          # REST API 视图 + 权限控制
 │   ├── consumers.py      # WebSocket 消费者（ChatConsumer + DmConsumer）
 │   ├── serializers.py    # DRF 序列化器
@@ -90,10 +106,12 @@ Golden-Courtyard/
 │   └── wsgi.py
 ├── templates/
 │   └── index.html        # 单页前端（HTML + CSS + JS）
+├── media/                # 用户上传文件（头像、图标）
 ├── docs/                 # 开发者文档
 │   ├── api.md            # REST API 参考
 │   ├── websocket.md      # WebSocket 协议说明
-│   └── architecture.md   # 架构设计说明
+│   ├── architecture.md   # 架构设计说明
+│   └── help.md           # 使用帮助
 ├── manage.py
 ├── requirements.txt
 └── README.md
@@ -106,6 +124,7 @@ Golden-Courtyard/
 - [API 参考](./docs/api.md) — REST API 端点说明
 - [WebSocket 协议](./docs/websocket.md) — WebSocket 消息格式与事件
 - [架构设计](./docs/architecture.md) — 项目架构与数据模型
+- [使用帮助](./docs/help.md) — 功能使用指南
 
 ## License
 

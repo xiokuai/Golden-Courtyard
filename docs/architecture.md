@@ -28,11 +28,13 @@
 
 ```
 User (AbstractUser)
- ├── avatar: URLField
- └── online: BooleanField
+ ├── avatar: ImageField (upload_to='avatars/')
+ ├── online: BooleanField
+ └── status_text: CharField (max 100)
 
 Server
  ├── name
+ ├── icon: ImageField (upload_to='server_icons/')
  ├── owner → User
  ├── invite_code (唯一, 自动生成)
  └── created_at
@@ -47,15 +49,22 @@ Membership
  ├── user → User
  ├── server → Server
  ├── role (owner/admin/member)
- └── joined_at
+ ├── joined_at
  └── unique_together: (user, server)
 
 Message
  ├── content
  ├── author → User
  ├── channel → Channel
+ ├── reply_to → Message (可空, SET_NULL)
  ├── created_at
  └── updated_at
+
+ChannelReadState
+ ├── user → User
+ ├── channel → Channel
+ ├── last_read_id: PositiveBigIntegerField
+ └── unique_together: (user, channel)
 
 DirectMessage
  ├── content
@@ -92,11 +101,16 @@ DirectMessage
 |------|------|
 | 创建服务器 | 已登录 |
 | 修改/删除服务器 | owner |
+| 上传服务器图标 | owner |
 | 创建频道 | 服务器成员 |
 | 删除频道 | owner 或 admin |
+| 修改成员角色 | owner |
+| 踢出成员 | owner 或 admin（admin 不能踢 admin） |
 | 发送消息 | 服务器成员 |
 | 删除消息 | 消息作者 |
 | 编辑消息 | 消息作者（仅 WebSocket） |
+| 上传头像 | 已登录（限 2MB） |
+| 更新状态 | 已登录 |
 
 ---
 
@@ -104,5 +118,6 @@ DirectMessage
 
 - `InMemoryChannelLayer` 仅支持单进程，生产环境需替换为 Redis Channel Layer
 - 语音频道（voice）模型已定义但未实现
-- 用户头像字段存在但无上传接口
 - 前端为单文件 SPA，未使用前端框架
+- 文件上传存储在本地 `media/` 目录，生产环境建议使用对象存储
+- 主题设置仅保存在浏览器 localStorage，不同设备不同步

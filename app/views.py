@@ -1,5 +1,6 @@
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login, logout
 from django.db import IntegrityError
@@ -320,3 +321,49 @@ def mark_read(request, channel_id):
             defaults={'last_read_id': last_msg.id},
         )
     return Response({'ok': True})
+
+
+@api_view(['POST'])
+def upload_avatar(request):
+    """上传用户头像"""
+    file = request.FILES.get('avatar')
+    if not file:
+        return Response({'detail': '请选择图片'}, status=status.HTTP_400_BAD_REQUEST)
+    if file.size > 2 * 1024 * 1024:
+        return Response({'detail': '图片不能超过2MB'}, status=status.HTTP_400_BAD_REQUEST)
+    user = request.user
+    if user.avatar:
+        user.avatar.delete(save=False)
+    user.avatar = file
+    user.save(update_fields=['avatar'])
+    return Response(UserSerializer(user).data)
+
+
+@api_view(['POST'])
+def update_status(request):
+    """更新用户状态消息"""
+    text = request.data.get('status_text', '').strip()[:100]
+    request.user.status_text = text
+    request.user.save(update_fields=['status_text'])
+    return Response(UserSerializer(request.user).data)
+
+
+@api_view(['POST'])
+def upload_server_icon(request, pk):
+    """上传服务器图标"""
+    try:
+        server = Server.objects.get(pk=pk)
+    except Server.DoesNotExist:
+        return Response({'detail': '服务器不存在'}, status=status.HTTP_404_NOT_FOUND)
+    if server.owner != request.user:
+        return Response({'detail': '只有所有者可以修改图标'}, status=status.HTTP_403_FORBIDDEN)
+    file = request.FILES.get('icon')
+    if not file:
+        return Response({'detail': '请选择图片'}, status=status.HTTP_400_BAD_REQUEST)
+    if file.size > 2 * 1024 * 1024:
+        return Response({'detail': '图片不能超过2MB'}, status=status.HTTP_400_BAD_REQUEST)
+    if server.icon:
+        server.icon.delete(save=False)
+    server.icon = file
+    server.save(update_fields=['icon'])
+    return Response(ServerSerializer(server, context={'request': request}).data)

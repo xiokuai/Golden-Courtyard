@@ -23,6 +23,12 @@
 { "type": "message", "content": "你好" }
 ```
 
+**发送消息（带回复）**
+
+```json
+{ "type": "message", "content": "同意", "reply_to": 42 }
+```
+
 **发送输入状态**
 
 ```json
@@ -52,6 +58,7 @@
   "content": "你好",
   "author": { "id": 1, "username": "alice", "avatar": "" },
   "channel": 1,
+  "reply_to": { "id": 42, "content": "原消息", "author": { "id": 2, "username": "bob" } },
   "created_at": "2025-01-01T12:00:00"
 }
 ```

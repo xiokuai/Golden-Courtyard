@@ -6,6 +6,8 @@ urlpatterns = [
     path('login/', views.login_view),
     path('logout/', views.logout_view),
     path('me/', views.me_view),
+    path('me/avatar/', views.upload_avatar),
+    path('me/status/', views.update_status),
 
     # 服务器
     path('servers/', views.ServerViewSet.as_view({'get': 'list', 'post': 'create'})),
@@ -16,6 +18,7 @@ urlpatterns = [
     path('servers/<int:pk>/online/', views.ServerViewSet.as_view({'get': 'online_members'})),
     path('servers/<int:pk>/role/', views.ServerViewSet.as_view({'post': 'change_role'})),
     path('servers/<int:pk>/kick/', views.ServerViewSet.as_view({'post': 'kick_member'})),
+    path('servers/<int:pk>/icon/', views.upload_server_icon),
 
     # 频道
     path('servers/<int:server_pk>/channels/',

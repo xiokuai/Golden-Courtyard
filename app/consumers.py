@@ -163,7 +163,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             'author': {
                 'id': self.user.id,
                 'username': self.user.username,
-                'avatar': self.user.avatar,
+                'avatar': self.user.avatar.url if self.user.avatar else '',
             },
             'channel': msg.channel_id,
             'created_at': msg.created_at.isoformat(),

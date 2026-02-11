@@ -10,6 +10,8 @@
 | POST | `/api/login/` | 用户登录 |
 | POST | `/api/logout/` | 用户登出 |
 | GET | `/api/me/` | 获取当前用户信息 |
+| POST | `/api/me/avatar/` | 上传用户头像 |
+| POST | `/api/me/status/` | 更新状态消息 |
 
 ### POST /api/register/
 
@@ -18,7 +20,7 @@
 { "username": "alice", "password": "secret123" }
 
 // 响应 201
-{ "id": 1, "username": "alice", "avatar": "", "online": false }
+{ "id": 1, "username": "alice", "avatar": "", "online": false, "status_text": "" }
 ```
 
 ### POST /api/login/
@@ -28,10 +30,29 @@
 { "username": "alice", "password": "secret123" }
 
 // 响应 200
-{ "id": 1, "username": "alice", "avatar": "", "online": false }
+{ "id": 1, "username": "alice", "avatar": "", "online": false, "status_text": "" }
 
 // 错误 401
 { "detail": "用户名或密码错误" }
+```
+
+### POST /api/me/avatar/
+
+上传用户头像，使用 `multipart/form-data`，字段名 `avatar`，限制 2MB。
+
+```json
+// 响应 200
+{ "id": 1, "username": "alice", "avatar": "http://host/media/avatars/xxx.jpg", "online": true, "status_text": "" }
+```
+
+### POST /api/me/status/
+
+```json
+// 请求
+{ "status_text": "正在摸鱼" }
+
+// 响应 200
+{ "id": 1, "username": "alice", "avatar": "", "online": true, "status_text": "正在摸鱼" }
 ```
 
 ---
@@ -49,6 +70,9 @@
 | POST | `/api/servers/:id/leave/` | 退出服务器 |
 | GET | `/api/servers/:id/members/` | 获取服务器成员列表 |
 | GET | `/api/servers/:id/online/` | 获取在线成员 ID 列表 |
+| POST | `/api/servers/:id/role/` | 修改成员角色（仅 owner） |
+| POST | `/api/servers/:id/kick/` | 踢出成员（owner/admin） |
+| POST | `/api/servers/:id/icon/` | 上传服务器图标（仅 owner） |
 
 ### POST /api/servers/
 
@@ -71,6 +95,35 @@
 
 // 错误 404
 { "detail": "邀请码无效" }
+```
+
+### POST /api/servers/:id/role/
+
+```json
+// 请求（role 可选 admin / member）
+{ "user_id": 2, "role": "admin" }
+
+// 响应 200
+{ "detail": "已设为管理员" }
+```
+
+### POST /api/servers/:id/kick/
+
+```json
+// 请求
+{ "user_id": 2 }
+
+// 响应 200
+{ "detail": "已踢出该成员" }
+```
+
+### POST /api/servers/:id/icon/
+
+上传服务器图标，使用 `multipart/form-data`，字段名 `icon`，限制 2MB，仅 owner 可操作。
+
+```json
+// 响应 200
+{ "id": 1, "name": "我的服务器", "icon": "http://host/media/server_icons/xxx.jpg", ... }
 ```
 
 ---
@@ -103,6 +156,21 @@
 | POST | `/api/channels/:channel_id/messages/` | 发送消息 |
 | DELETE | `/api/channels/:channel_id/messages/:id/` | 删除消息（仅作者） |
 
+### 发送消息
+
+```json
+// 请求（reply_to_id 可选，用于回复某条消息）
+{ "content": "你好", "reply_to_id": 42 }
+
+// 响应 201
+{
+  "id": 43, "content": "你好",
+  "author": { "id": 1, "username": "alice", "avatar": "", "online": true, "status_text": "" },
+  "reply_to": { "id": 42, "content": "原消息内容", "author": {...} },
+  "created_at": "...", "updated_at": "..."
+}
+```
+
 ### 分页参数
 
 - `before` — 消息 ID，返回该 ID 之前的 50 条消息（用于加载历史）
@@ -121,6 +189,29 @@ GET /api/channels/1/messages/?before=100
 | GET | `/api/dm/:user_id/` | 获取与某用户的私信记录（分页） |
 | POST | `/api/dm/:user_id/` | 发送私信（REST 备用，推荐用 WebSocket） |
 | GET | `/api/users/search/?q=xxx` | 搜索用户（最多 10 条） |
+
+---
+
+## 未读消息
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/unread/` | 获取所有频道未读消息数 |
+| POST | `/api/channels/:channel_id/read/` | 标记频道已读 |
+
+### GET /api/unread/
+
+```json
+// 响应 200 — key 为频道 ID，value 为未读数（仅返回 > 0 的）
+{ "3": 5, "7": 12 }
+```
+
+### POST /api/channels/:channel_id/read/
+
+```json
+// 响应 200
+{ "ok": true }
+```
 
 ### GET /api/dm/
 
