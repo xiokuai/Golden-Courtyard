@@ -322,12 +322,42 @@ body {
 .msg-text a { color: var(--accent); text-decoration: none; }
 .msg-text a:hover { text-decoration: underline; }
 
+/* 附件 */
+.msg-attachment { margin-top: 6px; max-width: 400px; }
+.msg-attachment img { max-width: 100%; max-height: 300px; border-radius: 8px; cursor: pointer; }
+.msg-attachment video { max-width: 100%; max-height: 300px; border-radius: 8px; }
+.msg-attachment audio { width: 100%; max-width: 320px; }
+.msg-attachment .file-card {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 10px; text-decoration: none; color: var(--text-primary);
+  transition: background 0.15s;
+}
+.msg-attachment .file-card:hover { background: rgba(255,255,255,0.08); }
+.msg-attachment .file-icon { font-size: 24px; flex-shrink: 0; }
+.msg-attachment .file-name { font-size: 13px; color: var(--accent); word-break: break-all; }
+.msg-attachment .file-size { font-size: 11px; color: var(--text-muted); }
+#file-preview-bar {
+  display: none; padding: 6px 16px; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.03); border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text-secondary);
+}
+#file-preview-bar.active { display: flex; }
+#file-preview-bar .file-preview-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#file-preview-bar .file-preview-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
+.attach-btn {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; flex-shrink: 0; transition: color 0.15s;
+}
+.attach-btn:hover { color: var(--text-primary); }
+
 /* 消息输入 */
 #message-form { padding: 0 20px 20px; }
 #message-form form {
   display: flex; align-items: center;
   background: rgba(255,255,255,0.04); border: 1px solid var(--border);
-  border-radius: 14px; padding: 4px 6px 4px 16px;
+  border-radius: 14px; padding: 4px 6px 4px 6px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 #message-form form:focus-within {
@@ -689,8 +719,12 @@ body {
     <div id="messages"></div>
     <div id="typing-indicator"></div>
     <div id="reply-bar"><span id="reply-info"></span><button class="reply-close" onclick="cancelReply()">&times;</button></div>
+    <div id="file-preview-bar"><span class="file-preview-name" id="file-preview-name"></span><button class="file-preview-close" onclick="clearFilePreview()">&times;</button></div>
     <div id="message-form">
       <form onsubmit="sendMessage(event)">
+        <button type="button" class="attach-btn" onclick="pickFile('channel')" title="上传文件">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        </button>
         <input id="msg-input" placeholder="发送消息..." autocomplete="off" oninput="sendTyping()" />
         <button type="submit">
           <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -703,7 +737,14 @@ body {
     <div class="header" id="dm-header">私信</div>
     <div id="dm-messages" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:2px;"></div>
     <div id="dm-form" style="padding:0 20px 20px;">
-      <form onsubmit="sendDm(event)" style="display:flex;align-items:center;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:14px;padding:4px 6px 4px 16px;">
+      <div id="dm-file-preview-bar" style="display:none;padding:6px 16px;align-items:center;gap:10px;background:rgba(255,255,255,0.03);border-top:1px solid var(--border);font-size:13px;color:var(--text-secondary);margin-bottom:4px;border-radius:8px;">
+        <span id="dm-file-preview-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <button onclick="clearDmFilePreview()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;">&times;</button>
+      </div>
+      <form onsubmit="sendDm(event)" style="display:flex;align-items:center;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:14px;padding:4px 6px 4px 6px;">
+        <button type="button" class="attach-btn" onclick="pickFile('dm')" title="上传文件">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        </button>
         <input id="dm-input" placeholder="发送私信..." autocomplete="off" style="flex:1;background:none;border:none;color:var(--text-primary);padding:10px 0;font-size:14px;outline:none;font-family:inherit;" />
         <button type="submit" style="background:linear-gradient(135deg,var(--accent),#6d28d9);border:none;color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
           <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#fff;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -926,6 +967,23 @@ function renderMd(text) {
   return text;
 }
 
+function renderAttachment(m) {
+  if (!m.attachment) return '';
+  const url = esc(m.attachment);
+  const name = esc(m.attachment_name || 'file');
+  const t = m.attachment_type;
+  if (t === 'image') {
+    return `<div class="msg-attachment"><img src="${url}" alt="${name}" onclick="window.open('${url}','_blank')" loading="lazy"></div>`;
+  }
+  if (t === 'video') {
+    return `<div class="msg-attachment"><video src="${url}" controls preload="metadata"></video></div>`;
+  }
+  if (t === 'audio') {
+    return `<div class="msg-attachment"><audio src="${url}" controls preload="metadata"></audio></div>`;
+  }
+  return `<div class="msg-attachment"><a class="file-card" href="${url}" target="_blank" download="${name}"><span class="file-icon">📎</span><span class="file-name">${name}</span></a></div>`;
+}
+
 // ===== 认证 =====
 function toggleAuth() {
   isLogin = !isLogin;
@@ -1057,6 +1115,7 @@ function renderServerBar(servers) {
   const sep1 = document.createElement('div');
   sep1.className = 'server-sep';
   bar.appendChild(sep1);
+  servers.sort((a, b) => (b.is_system ? 1 : 0) - (a.is_system ? 1 : 0));
   servers.forEach(s => {
     const el = document.createElement('div');
     el.className = 'server-icon' + (!dmMode && currentServer && currentServer.id === s.id ? ' active' : '');
@@ -1108,7 +1167,8 @@ function renderChannels(channels) {
   list.innerHTML = '';
   const label = document.createElement('div');
   label.className = 'section-label';
-  label.innerHTML = '文字频道 <button class="add-ch" onclick="document.getElementById(\'channel-modal\').classList.add(\'show\')" title="创建频道">+</button>';
+  const addChBtn = (currentServer && currentServer.is_system) ? '' : '<button class="add-ch" onclick="document.getElementById(\'channel-modal\').classList.add(\'show\')" title="创建频道">+</button>';
+  label.innerHTML = '文字频道 ' + addChBtn;
   list.appendChild(label);
   channels.forEach(ch => {
     const el = document.createElement('div');
@@ -1193,7 +1253,8 @@ function buildMessageEl(m) {
       <div class="msg-avatar">${avatarInner(m.author)}</div>
       <div class="msg-body">
         <div class="msg-name" style="color:${c}">${esc(m.author.username)}<span class="msg-time">${time}</span></div>
-        <div class="msg-text" id="msg-text-${m.id}">${renderMd(esc(m.content))}${edited}</div>
+        <div class="msg-text" id="msg-text-${m.id}">${m.content ? renderMd(esc(m.content)) : ''}${edited}</div>
+        ${renderAttachment(m)}
       </div>
       <div class="msg-actions">
         <button class="msg-action-btn" onclick="startReply(${m.id})">回复</button>${ownActions}
@@ -1273,6 +1334,41 @@ function _doConnectWS() {
 }
 
 let replyingTo = null;
+let pendingFile = null;
+let pendingFileTarget = null; // 'channel' or 'dm'
+
+function pickFile(target) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z,.txt,.csv';
+  input.onchange = () => {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { toast('文件不能超过20MB'); return; }
+    pendingFile = file;
+    pendingFileTarget = target;
+    if (target === 'channel') {
+      document.getElementById('file-preview-name').textContent = file.name;
+      document.getElementById('file-preview-bar').classList.add('active');
+    } else {
+      document.getElementById('dm-file-preview-name').textContent = file.name;
+      document.getElementById('dm-file-preview-bar').style.display = 'flex';
+    }
+  };
+  input.click();
+}
+
+function clearFilePreview() {
+  pendingFile = null;
+  pendingFileTarget = null;
+  document.getElementById('file-preview-bar').classList.remove('active');
+}
+
+function clearDmFilePreview() {
+  pendingFile = null;
+  pendingFileTarget = null;
+  document.getElementById('dm-file-preview-bar').style.display = 'none';
+}
 
 function startReply(msgId) {
   const msgEl = document.querySelector(`.message[data-id="${msgId}"]`);
@@ -1299,6 +1395,21 @@ function sendMessage(e) {
   e.preventDefault();
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
+  if (pendingFile && pendingFileTarget === 'channel' && currentChannel) {
+    const fd = new FormData();
+    fd.append('file', pendingFile);
+    fd.append('content', text);
+    if (replyingTo) fd.append('reply_to', replyingTo);
+    fetch(API + `/channels/${currentChannel.id}/upload/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      body: fd,
+    }).then(r => { if (!r.ok) throw r; }).catch(() => toast('上传失败'));
+    input.value = '';
+    cancelReply();
+    clearFilePreview();
+    return;
+  }
   if (!text || !ws) return;
   const payload = { type: 'message', content: text };
   if (replyingTo) { payload.reply_to = replyingTo; }
@@ -1612,7 +1723,8 @@ async function loadDmMessages() {
           <div class="msg-avatar">${avatarInner(m.sender)}</div>
           <div class="msg-body">
             <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
-            <div class="msg-text">${renderMd(esc(m.content))}</div>
+            <div class="msg-text">${m.content ? renderMd(esc(m.content)) : ''}</div>
+            ${renderAttachment(m)}
           </div>
         </div>`;
       container.appendChild(div);
@@ -1625,7 +1737,21 @@ async function sendDm(e) {
   e.preventDefault();
   const input = document.getElementById('dm-input');
   const text = input.value.trim();
-  if (!text || !currentDmUser) return;
+  if (!currentDmUser) return;
+  if (pendingFile && pendingFileTarget === 'dm') {
+    const fd = new FormData();
+    fd.append('file', pendingFile);
+    fd.append('content', text);
+    fetch(API + `/dm/${currentDmUser.id}/upload/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      body: fd,
+    }).then(r => { if (!r.ok) throw r; }).catch(() => toast('上传失败'));
+    input.value = '';
+    clearDmFilePreview();
+    return;
+  }
+  if (!text) return;
   if (dmWs && dmWs.readyState === 1) {
     dmWs.send(JSON.stringify({ type: 'message', receiver_id: currentDmUser.id, content: text }));
     input.value = '';
@@ -1680,7 +1806,8 @@ function appendDmMessage(m) {
       <div class="msg-avatar">${avatarInner(m.sender)}</div>
       <div class="msg-body">
         <div class="msg-name" style="color:${c}">${esc(m.sender.username)}<span class="msg-time">${time}</span></div>
-        <div class="msg-text">${renderMd(esc(m.content))}</div>
+        <div class="msg-text">${m.content ? renderMd(esc(m.content)) : ''}</div>
+        ${renderAttachment(m)}
       </div>
     </div>`;
   container.appendChild(div);
@@ -1791,16 +1918,18 @@ function showServerCtx(e, server) {
     menu.appendChild(iconItem);
   }
 
-  const actionItem = document.createElement('div');
-  actionItem.className = 'ctx-menu-item danger';
-  if (server.owner && server.owner.id === currentUser.id) {
-    actionItem.textContent = '删除服务器';
-    actionItem.onclick = () => { removeCtxMenu(); deleteServer(server.id); };
-  } else {
-    actionItem.textContent = '退出服务器';
-    actionItem.onclick = () => { removeCtxMenu(); leaveServer(server.id); };
+  if (!server.is_system) {
+    const actionItem = document.createElement('div');
+    actionItem.className = 'ctx-menu-item danger';
+    if (server.owner && server.owner.id === currentUser.id) {
+      actionItem.textContent = '删除服务器';
+      actionItem.onclick = () => { removeCtxMenu(); deleteServer(server.id); };
+    } else {
+      actionItem.textContent = '退出服务器';
+      actionItem.onclick = () => { removeCtxMenu(); leaveServer(server.id); };
+    }
+    menu.appendChild(actionItem);
   }
-  menu.appendChild(actionItem);
   document.body.appendChild(menu);
 }
 

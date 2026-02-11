@@ -21,6 +21,10 @@ def register_view(request):
     ser.is_valid(raise_exception=True)
     user = ser.save()
     login(request, user)
+    # 自动加入系统服务器
+    system_server = Server.objects.filter(is_system=True).first()
+    if system_server:
+        Membership.objects.get_or_create(user=user, server=system_server, defaults={'role': 'member'})
     return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
@@ -66,8 +70,10 @@ class ServerViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
+        from rest_framework.exceptions import PermissionDenied
+        if instance.is_system:
+            raise PermissionDenied('不能删除系统服务器')
         if instance.owner != self.request.user:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('只有服务器所有者可以删除服务器')
         instance.delete()
 
@@ -92,6 +98,8 @@ class ServerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='leave')
     def leave_server(self, request, pk=None):
         server = self.get_object()
+        if server.is_system:
+            return Response({'detail': '不能退出系统服务器'}, status=status.HTTP_400_BAD_REQUEST)
         if server.owner == request.user:
             return Response({'detail': '所有者不能退出服务器，请先转让或删除'}, status=status.HTTP_400_BAD_REQUEST)
         Membership.objects.filter(user=request.user, server=server).delete()
@@ -162,6 +170,8 @@ class ChannelViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         from rest_framework.exceptions import PermissionDenied
+        if instance.server.is_system:
+            raise PermissionDenied('不能删除系统服务器的频道')
         membership = Membership.objects.filter(
             user=self.request.user, server=instance.server
         ).first()
@@ -367,3 +377,99 @@ def upload_server_icon(request, pk):
     server.icon = file
     server.save(update_fields=['icon'])
     return Response(ServerSerializer(server, context={'request': request}).data)
+
+
+def _detect_attachment_type(filename):
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'):
+        return 'image'
+    if ext in ('mp4', 'webm', 'mov', 'avi', 'mkv'):
+        return 'video'
+    if ext in ('mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'):
+        return 'audio'
+    return 'file'
+
+
+MAX_UPLOAD = 20 * 1024 * 1024  # 20MB
+
+
+@api_view(['POST'])
+def upload_message_file(request, channel_id):
+    """上传文件消息到频道"""
+    try:
+        channel = Channel.objects.select_related('server').get(pk=channel_id)
+    except Channel.DoesNotExist:
+        return Response({'detail': '频道不存在'}, status=status.HTTP_404_NOT_FOUND)
+    if not Membership.objects.filter(user=request.user, server=channel.server).exists():
+        return Response({'detail': '你不是该服务器的成员'}, status=status.HTTP_403_FORBIDDEN)
+    file = request.FILES.get('file')
+    if not file:
+        return Response({'detail': '请选择文件'}, status=status.HTTP_400_BAD_REQUEST)
+    if file.size > MAX_UPLOAD:
+        return Response({'detail': '文件不能超过20MB'}, status=status.HTTP_400_BAD_REQUEST)
+    content = request.POST.get('content', '')
+    reply_to_id = request.POST.get('reply_to')
+    att_type = _detect_attachment_type(file.name)
+    kwargs = dict(
+        content=content, author=request.user, channel=channel,
+        attachment=file, attachment_type=att_type, attachment_name=file.name,
+    )
+    if reply_to_id:
+        kwargs['reply_to_id'] = int(reply_to_id)
+    msg = Message.objects.create(**kwargs)
+    # 通过 channel layer 广播给 WebSocket 房间
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    layer = get_channel_layer()
+    att_url = request.build_absolute_uri(msg.attachment.url) if msg.attachment else ''
+    broadcast = {
+        'id': msg.id, 'content': msg.content,
+        'author': {'id': request.user.id, 'username': request.user.username,
+                   'avatar': request.user.avatar.url if request.user.avatar else ''},
+        'channel': msg.channel_id,
+        'attachment': att_url, 'attachment_type': att_type, 'attachment_name': file.name,
+        'reply_to': None, 'created_at': msg.created_at.isoformat(),
+    }
+    if msg.reply_to_id:
+        rt = Message.objects.select_related('author').filter(pk=msg.reply_to_id).first()
+        if rt:
+            broadcast['reply_to'] = {'id': rt.id, 'content': rt.content,
+                                     'author': {'id': rt.author.id, 'username': rt.author.username}}
+    async_to_sync(layer.group_send)(f'chat_{channel_id}', {
+        'type': 'chat_message', 'message': broadcast,
+    })
+    return Response({'ok': True, 'id': msg.id}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def upload_dm_file(request, user_id):
+    """上传文件私信"""
+    try:
+        receiver = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({'detail': '用户不存在'}, status=status.HTTP_404_NOT_FOUND)
+    file = request.FILES.get('file')
+    if not file:
+        return Response({'detail': '请选择文件'}, status=status.HTTP_400_BAD_REQUEST)
+    if file.size > MAX_UPLOAD:
+        return Response({'detail': '文件不能超过20MB'}, status=status.HTTP_400_BAD_REQUEST)
+    content = request.POST.get('content', '')
+    att_type = _detect_attachment_type(file.name)
+    dm = DirectMessage.objects.create(
+        sender=request.user, receiver=receiver, content=content,
+        attachment=file, attachment_type=att_type, attachment_name=file.name,
+    )
+    att_url = request.build_absolute_uri(dm.attachment.url) if dm.attachment else ''
+    broadcast = {
+        'id': dm.id, 'content': dm.content,
+        'sender': {'id': request.user.id, 'username': request.user.username},
+        'receiver': {'id': receiver.id, 'username': receiver.username},
+        'attachment': att_url, 'attachment_type': att_type, 'attachment_name': dm.attachment_name,
+        'created_at': dm.created_at.isoformat(),
+    }
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    layer = get_channel_layer()
+    async_to_sync(layer.group_send)(f'dm_{receiver.id}', {'type': 'dm_message', 'message': broadcast})
+    async_to_sync(layer.group_send)(f'dm_{request.user.id}', {'type': 'dm_message', 'message': broadcast})
+    return Response({'ok': True, 'id': dm.id}, status=status.HTTP_201_CREATED)

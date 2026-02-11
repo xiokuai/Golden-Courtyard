@@ -52,7 +52,7 @@ class ServerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Server
-        fields = ['id', 'name', 'icon', 'owner', 'invite_code', 'channels', 'member_count', 'created_at']
+        fields = ['id', 'name', 'icon', 'owner', 'invite_code', 'channels', 'member_count', 'is_system', 'created_at']
         read_only_fields = ['invite_code', 'created_at']
 
     def get_member_count(self, obj):
@@ -79,19 +79,39 @@ class MessageSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     reply_to = ReplyInfoSerializer(read_only=True)
     reply_to_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    attachment = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ['id', 'content', 'author', 'channel', 'reply_to', 'reply_to_id', 'created_at', 'updated_at']
+        fields = ['id', 'content', 'author', 'channel', 'reply_to', 'reply_to_id',
+                  'attachment', 'attachment_type', 'attachment_name', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
+
+    def get_attachment(self, obj):
+        if obj.attachment:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.attachment.url)
+            return obj.attachment.url
+        return ''
 
 
 class DirectMessageSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
     receiver = UserSerializer(read_only=True)
     receiver_id = serializers.IntegerField(write_only=True)
+    attachment = serializers.SerializerMethodField()
 
     class Meta:
         model = DirectMessage
-        fields = ['id', 'content', 'sender', 'receiver', 'receiver_id', 'created_at', 'is_read']
+        fields = ['id', 'content', 'sender', 'receiver', 'receiver_id',
+                  'attachment', 'attachment_type', 'attachment_name', 'created_at', 'is_read']
         read_only_fields = ['created_at', 'is_read']
+
+    def get_attachment(self, obj):
+        if obj.attachment:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.attachment.url)
+            return obj.attachment.url
+        return ''

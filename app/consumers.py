@@ -166,6 +166,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 'avatar': self.user.avatar.url if self.user.avatar else '',
             },
             'channel': msg.channel_id,
+            'attachment': msg.attachment.url if msg.attachment else '',
+            'attachment_type': msg.attachment_type,
+            'attachment_name': msg.attachment_name,
             'created_at': msg.created_at.isoformat(),
             'reply_to': None,
         }
@@ -258,5 +261,6 @@ class DmConsumer(AsyncJsonWebsocketConsumer):
             'content': dm.content,
             'sender': {'id': self.user.id, 'username': self.user.username},
             'receiver': {'id': receiver.id, 'username': receiver.username},
+            'attachment': '', 'attachment_type': '', 'attachment_name': '',
             'created_at': dm.created_at.isoformat(),
         }

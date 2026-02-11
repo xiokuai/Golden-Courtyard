@@ -19,6 +19,7 @@ class Server(models.Model):
     icon = models.ImageField(upload_to='server_icons/', blank=True, default='')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_servers')
     invite_code = models.CharField(max_length=20, unique=True, default='')
+    is_system = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -70,10 +71,16 @@ class Membership(models.Model):
 
 class Message(models.Model):
     """聊天消息"""
-    content = models.TextField()
+    ATTACHMENT_TYPES = [
+        ('image', '图片'), ('video', '视频'), ('audio', '音频'), ('file', '文件'),
+    ]
+    content = models.TextField(blank=True, default='')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='messages')
     channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name='messages')
     reply_to = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies')
+    attachment = models.FileField(upload_to='attachments/%Y/%m/', blank=True, default='')
+    attachment_type = models.CharField(max_length=10, choices=ATTACHMENT_TYPES, blank=True, default='')
+    attachment_name = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -98,9 +105,12 @@ class ChannelReadState(models.Model):
 
 class DirectMessage(models.Model):
     """私信"""
-    content = models.TextField()
+    content = models.TextField(blank=True, default='')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_dms')
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_dms')
+    attachment = models.FileField(upload_to='dm_attachments/%Y/%m/', blank=True, default='')
+    attachment_type = models.CharField(max_length=10, choices=Message.ATTACHMENT_TYPES, blank=True, default='')
+    attachment_name = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
 

@@ -36,6 +36,10 @@ urlpatterns = [
     path('channels/<int:channel_pk>/messages/<int:pk>/',
          views.MessageViewSet.as_view({'delete': 'destroy'})),
 
+    # 文件上传
+    path('channels/<int:channel_id>/upload/', views.upload_message_file),
+    path('dm/<int:user_id>/upload/', views.upload_dm_file),
+
     # 私信
     path('users/search/', views.search_users),
     path('dm/', views.dm_conversations),
